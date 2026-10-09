@@ -4,9 +4,9 @@ Computational materials accompanying the manuscript by **Marek Gałązka and Han
 
 The procedure constructs a checkable certificate for each declared single-addition, pair-addition or stopping decision while re-estimating variance components. It reports an unresolved outcome when it cannot obtain a certificate. The guarantee applies to the specified model family and selection policy; statistical support recovery and prediction are evaluated separately.
 
-## Version 1.0.0 and complete download
+## Version 1.0.1 and complete download
 
-The complete reproducibility archive is attached to [release v1.0.0](https://github.com/mgalazka84/certified-mixed-model-selection/releases/tag/v1.0.0) as **CSDA_GitHub_package.zip**. Download and extract this asset to obtain all exact inputs, stored results, binary package/data files and figures before running the examples below. The release also provides the manuscript PDF and an archive checksum file.
+The complete reproducibility archive is attached to [release v1.0.1](https://github.com/mgalazka84/certified-mixed-model-selection/releases/tag/v1.0.1) as **CSDA_GitHub_package.zip**. Download and extract this asset to obtain all exact inputs, stored results, binary package/data files and figures before running the examples below. The release also provides the manuscript PDF and an archive checksum file.
 
 The repository tree provides browsable source code, documentation and manuscript tables. GitHub's automatic **Source code** downloads contain that source tree; use **CSDA_GitHub_package.zip** for the full recorded study.
 

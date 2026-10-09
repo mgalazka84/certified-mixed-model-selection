@@ -340,16 +340,6 @@ cover all observations. Test outcomes never enter tuning. The elastic-net
 screen is a marginal linear model, not a penalized mixed-model estimator.
 Native shrunken predictions are also retained.
 
-\paragraph{Computational workflow}
-OpenAI ChatGPT/Codex (OpenAI; accessed on 14 September and 9 October 2026)
-assisted with mathematical derivations, code development, experiment
-orchestration and interpretation. The exact service build was not recorded.
-Numerical results were obtained by running the archived Python and R programs
-on the stored inputs and seeds; Matplotlib figures were generated from these
-outputs. The archived source, protocols, diagnostics and decision witnesses
-document the computations. Scientific assessment of the derivations and
-interpretations remains the responsibility of the authors.
-
 \subsection{Measurements}
 For true support $S_0$ and selected support $\widehat S$, true-positive rate is
 $|\widehat S\cap S_0|/|S_0|$ when $S_0\ne\varnothing$. False-discovery proportion
@@ -711,7 +701,7 @@ The implementation, complete protocols, exact simulated arrays, public
 real-data source files with hashes and attribution, raw results, figures and
 path witnesses are available from the
 \href{https://github.com/mgalazka84/certified-mixed-model-selection}{project repository on GitHub},
-release \href{https://github.com/mgalazka84/certified-mixed-model-selection/releases/tag/v1.0.0}{\texttt{v1.0.0}}.
+release \href{https://github.com/mgalazka84/certified-mixed-model-selection/releases/tag/v1.0.1}{\texttt{v1.0.1}}.
 The complete reproducibility archive is supplied as a release asset; the
 repository tree contains the source code, documentation and manuscript tables.
 The source-checked
@@ -780,9 +770,8 @@ floor for the augmented model remains positive.
 \begin{samepage}
 \section*{Declaration of generative AI and AI-assisted technologies in the manuscript preparation process}
 OpenAI ChatGPT/Codex assisted with code development and manuscript organization,
-drafting and editing. Its use in the research workflow is described in
-Section~\ref{sec:researchworkflow}. Responsibility for the scientific content
-rests with the authors.
+drafting and editing. Responsibility for the scientific content rests with
+the authors.
 \end{samepage}
 
 \clearpage
