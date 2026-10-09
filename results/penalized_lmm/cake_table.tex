@@ -1,0 +1,14 @@
+\begin{table}[H]\centering\small
+\begin{tabular}{lrrrrr}\toprule
+Method & Folds & MSE & MAE & Size & Seconds\\\midrule
+Verified BIC + pairs & 5/5 & 60.822 & 5.987 & 1.0 & 0.198\\
+Local BIC + pairs & 5/5 & 60.822 & 5.987 & 1.0 & 0.259\\
+BIC singles & 5/5 & 60.822 & 5.987 & 1.0 & 0.164\\
+ARSS-JPS policy & 5/5 & 60.822 & 5.987 & 1.0 & 0.129\\
+EN + ML & 5/5 & 63.434 & 6.064 & 1.6 & 0.243\\
+Native elastic net & 5/5 & 61.626 & 6.029 & 1.6 & --\\
+Native glmmsel & 5/5 & 62.974 & 6.058 & 3.4 & 0.840\\
+glmmsel + ML & 5/5 & 63.055 & 6.060 & 3.4 & 0.855\\
+\bottomrule\end{tabular}
+\caption{Cake: pooled out-of-fold prediction on the same 270 observations. Size is the mean selected predictor count; seconds are median fitting-and-tuning times. Native glmmsel allows selected random slopes; its ML refit uses only the reference random intercept. Native elastic net shares tuning with EN + ML, so no separate time is assigned. Differences between dependent folds are descriptive.}
+\end{table}

@@ -1,0 +1,23 @@
+\begin{table}[H]\centering\small
+\begin{tabular}{llrrrrrr}\toprule
+Design & Method & Done & TPR & FDR & Size & Mean MSE & Seconds\\\midrule
+Signals & Verified BIC + pairs & 20/20 & 0.983 & 0.0375 & 3.10 & 0.063 & 0.215\\
+Signals & Local BIC + pairs & 20/20 & 0.983 & 0.0375 & 3.10 & 0.063 & 0.938\\
+Signals & BIC singles & 20/20 & 0.983 & 0.0375 & 3.10 & 0.063 & 0.527\\
+Signals & ARSS-JPS policy & 20/20 & 0.967 & 0.0292 & 3.00 & 0.066 & 0.258\\
+Signals & EN + ML & 20/20 & 1.000 & 0.5558 & 7.45 & 0.083 & 0.245\\
+Signals & Native elastic net & 20/20 & 1.000 & 0.5558 & 7.45 & 0.097 & --\\
+Signals & Native glmmsel & 20/20 & 1.000 & 0.3872 & 5.70 & 0.083 & 0.508\\
+Signals & glmmsel + ML & 20/20 & 1.000 & 0.3872 & 5.70 & 0.078 & 0.521\\
+\midrule
+Suppressor & Verified BIC + pairs & 20/20 & 1.000 & 0.0375 & 3.15 & 0.029 & 0.241\\
+Suppressor & Local BIC + pairs & 20/20 & 1.000 & 0.0375 & 3.15 & 0.029 & 1.515\\
+Suppressor & BIC singles & 20/20 & 0.333 & 0.0500 & 1.10 & 0.398 & 0.286\\
+Suppressor & ARSS-JPS policy & 20/20 & 1.000 & 0.0375 & 3.15 & 0.029 & 0.333\\
+Suppressor & EN + ML & 20/20 & 1.000 & 0.7466 & 11.85 & 0.061 & 0.315\\
+Suppressor & Native elastic net & 20/20 & 1.000 & 0.7466 & 11.85 & 0.098 & --\\
+Suppressor & Native glmmsel & 20/20 & 0.967 & 0.7342 & 10.90 & 0.082 & 6.706\\
+Suppressor & glmmsel + ML & 20/20 & 0.967 & 0.7342 & 10.90 & 0.080 & 6.716\\
+\bottomrule\end{tabular}
+\caption{One-group simulations: 20 independent datasets per scenario. FDR is mean false discovery proportion; Mean MSE evaluates the generating population mean for new groups. Seconds are medians. Full Monte Carlo standard errors and paired differences are archived. Native glmmsel and reference BIC use different penalties and covariance search spaces.}
+\end{table}

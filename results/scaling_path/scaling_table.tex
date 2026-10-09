@@ -1,0 +1,15 @@
+\begin{table}[H]\centering\small
+\begin{tabular}{rrrrrr}
+\toprule
+$r_1+r_2$ & $p$ & Paths & \shortstack{Seconds\\generic / new} & \shortstack{Time\\ratio} & \shortstack{Peak MiB\\generic / new} \\
+\midrule
+25 & 20 & 3 & 6.58 / 5.77 & 1.25 & 130.6 / 80.5 \\
+50 & 20 & 3 & 6.78 / 4.32 & 1.76 & 115.3 / 84.4 \\
+100 & 20 & 3 & 20.36 / 6.49 & 3.14 & 136.1 / 94.1 \\
+200 & 20 & 3 & 69.21 / 15.85 & 4.37 & 174.2 / 124.9 \\
+50 & 40 & 3 & 20.07 / 12.34 & 1.66 & 206.1 / 95.2 \\
+50 & 60 & 3 & 49.53 / 27.58 & 1.76 & 395.1 / 117.6 \\
+\bottomrule
+\end{tabular}
+\caption{Matched stage-four backend comparison, $n=800$. Each row has two signal datasets and one suppressor dataset. Entries are medians; the time ratio is the median of paired ratios. RSS is total Linux process high-water memory including imports and data.}\label{tab:scalingmatched}
+\end{table}

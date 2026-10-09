@@ -1,0 +1,22 @@
+All 16/16 verified real-data paths completed, including 14 training-fold
+paths and two full-data descriptions, with 50 checked decisions. Every completed
+path replayed successfully, and all 16 comparable local-pair paths agreed.
+
+For carrots, verified out-of-fold MSE was 1.375, compared with 1.390
+for the intercept-only baseline and 1.364 for native elastic-net predictions.
+The full-data verified support was \texttt{sens2}.
+
+For cake, verified out-of-fold MSE was 60.822, compared with 67.783
+for the intercept-only baseline and 61.626 for native elastic-net predictions.
+The full-data verified support was \texttt{temperature\_linear}.
+
+Across the consumer-training folds, the verified procedure selected \texttt{sens2}
+in 7/9 fits, \texttt{sens1} in 2/9 and
+\texttt{Homesize\_3} in 2/9. The linear temperature column
+was selected in 5/5 cake-training fits. These dependent-fold
+frequencies describe stability within this partition, not selection probabilities.
+
+The observed prediction gains are modest for consumer preferences and larger
+for the cake experiment. They do not establish a predictive advantage of
+certification: local BIC paths agree, and native elastic net has the lowest
+pooled MSE among the tested procedures for carrots.

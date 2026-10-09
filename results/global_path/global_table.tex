@@ -1,0 +1,15 @@
+\begin{table}[H]\centering\small
+\begin{tabular}{lrrrr}
+\toprule
+Scenario & Verified paths & Decisions & Fits / comparator & Median seconds \\
+\midrule
+Signals & 3 / 3 & 15 & 24 / 180 & 0.367 \\
+Suppressor & 3 / 3 & 16 & 23 / 265 & 0.429 \\
+Boundary & 3 / 3 & 13 & 20 / 178 & 0.273 \\
+Null & 3 / 3 & 6 & 6 / 171 & 0.364 \\
+Near tie & 3 / 3 & 13 & 20 / 178 & 0.844 \\
+Large variance & 3 / 3 & 13 & 44 / 178 & 1.171 \\
+\bottomrule
+\end{tabular}
+\caption{Third-stage full-orthant BIC paths. All certificate construction is timed. The comparator fits all models on $[0,1024]^2$; its search domain and initialization differ. These are exploratory timings, not a matched-domain speedup study.}
+\end{table}

@@ -1,0 +1,19 @@
+{
+  "verified_on": "2026-10-09",
+  "title": "Adaptive Re-Screening and Pair-Screened Joint Rescue for Scalable Stepwise Selection in Cross-Classified Linear Mixed Models",
+  "authors": [
+    "Marek Gałązka",
+    "Hanna Wdowicka"
+  ],
+  "journal": "Applied Sciences",
+  "year": 2026,
+  "volume": "16",
+  "issue": "20",
+  "article_number": "10010",
+  "doi": "10.3390/app162010010",
+  "publication_date": "2026-10-09",
+  "publisher_url": "https://www.mdpi.com/2076-3417/16/20/10010",
+  "crossref_url": "https://api.crossref.org/works/10.3390/app162010010",
+  "published_code_commit": "0cdcf976178be7ed00af4b0737a7ed97540786a4",
+  "verification_notes": "Publisher full HTML and Crossref JSON inspected. Publication date follows the visible article record and Crossref; publisher citation_publication_date meta tag is incomplete. Published data availability cites the same ARSS-JPS commit used in the archived comparison. No new benchmark was performed for this editorial revision."
+}

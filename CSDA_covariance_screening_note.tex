@@ -1,0 +1,1353 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern,microtype}
+\usepackage[margin=2.25cm]{geometry}
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage{booktabs,tabularx,array,graphicx,float}
+\usepackage{xcolor,enumitem,fancyhdr}
+\usepackage[colorlinks=true,urlcolor=blue!55!black,citecolor=blue!55!black,linkcolor=blue!55!black]{hyperref}
+\definecolor{navy}{HTML}{19384C}
+\definecolor{teal}{HTML}{087F8C}
+\hypersetup{pdftitle={Covariance-aware screening for Gaussian mixed models},
+pdfauthor={Research working material for Marek Galazka},
+pdfsubject={Profile likelihood bounds, full single/pair paths and interval certificates},
+pdfkeywords={mixed models, screening, variance components, branch and bound}}
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{corollary}[theorem]{Corollary}
+\theoremstyle{remark}\newtheorem{remark}[theorem]{Remark}
+\newcommand{\R}{\mathbb R}
+\newcommand{\tr}{\operatorname{tr}}
+\newcommand{\Span}{\operatorname{span}}
+\newcommand{\diag}{\operatorname{diag}}
+\newcommand{\dist}{\operatorname{dist}}
+\newcommand{\vertx}{\operatorname{vert}}
+\newcommand{\lam}{\lambda}
+\newcommand{\calC}{\mathcal C}
+\newcommand{\calP}{\mathcal P}
+\input{results/scaling_path/scaling_macros.tex}
+\input{results/comparison/comparison_macros.tex}
+\setlist{itemsep=3pt,topsep=5pt}
+\setlength{\parskip}{4pt}
+\setlength{\parindent}{0pt}
+\pagestyle{fancy}\fancyhf{}
+\fancyhead[L]{\small\color{navy}Covariance-aware screening: research note}
+\fancyhead[R]{\small 14 September 2026}
+\fancyfoot[C]{\thepage}
+\setlength{\headheight}{14pt}
+\begin{document}
+\begin{center}
+{\Large\bfseries\color{navy}Verified covariance-aware screening\\for Gaussian mixed-model selection}\par\vspace{5pt}
+{\large Profile bounds, unbounded variance domains and checked paths}\par\vspace{9pt}
+Working material for Marek Ga\l{}\k{a}zka\quad |\quad 14 September 2026
+\end{center}
+\vspace{-4pt}\noindent\textcolor{teal}{\rule{\linewidth}{1.2pt}}
+
+\textbf{Status: fifth-stage research note.} This is working material, not a
+submission-ready CSDA manuscript. All results concern Gaussian models with fixed
+covariance-component matrices. Stage one is a float64 single-addition pilot.
+Stage two implements complete BIC-type single/pair paths on a compact ratio box.
+Stage three verifies exclusion of all unbounded tails under positive projection
+residual floors, extending the path guarantee to all nonnegative ratios.
+Stage four specializes the verifier to two crossed random-intercept designs
+and measures full-path time and process memory under a matched protocol.
+Stage five compares five selection procedures on 300 new simulated datasets,
+including held-out prediction with new groups on both margins. It is
+a new, explicitly defined selection policy, not a reproduction of every published
+ARSS-JPS likelihood-ratio rule. These experiments do not establish selective inference.
+A focused literature audit identifies substantial prior foundations; no historical
+priority claim is made for the individual mathematical ingredients.
+
+\begin{abstract}
+The fixed-covariance GLS score used by ARSS-JPS can understate the gain obtained
+after re-estimating covariance parameters. We develop computable upper bounds on that
+gain for covariance models $V=\sigma^2(I+\sum_{k=1}^q\lambda_kA_k)$ with $A_k\succeq0$.
+The key observation is that the logarithm of the profiled GLS residual sum of squares
+is convex in the variance ratios, whereas the log determinant is concave. A supporting
+plane for the former and vertex values for the latter give a global lower bound on
+profile deviance over a box. These bounds permit rigorous candidate exclusion in
+exact arithmetic and can share covariance factorizations across candidates. A
+positive residual floor additionally permits data-dependent exclusion of unbounded
+parameter tails. Complete single-addition and pair-rescue paths under an explicit
+BIC-type rule are checked using exact rational rank calculations and Arb
+enclosures. In a full-orthant pilot, all 18 paths completed and replayed; two
+large-variance examples selected different terminal supports from the $[0,4]^2$
+policy. A structured verifier for two crossed random-intercept components combines
+smaller Schur solves, shared gradient products and bounded large-object caches.
+In a matched scaling pilot with $n=800$, up to 200 random-effect columns or 60
+candidates, both backends completed \ScalingComplete{} input cases with identical
+decision witnesses. Median full-path speedup was \ScalingRatio{}, and median
+process peak-RSS reduction was \ScalingMemoryReduction{}\%.
+A subsequent 300-dataset study compares the BIC policy with and without pairs,
+the archived ARSS-JPS search rule, and cross-validated elastic-net screening
+followed by an ML refit. It measures selection and prediction in entirely new
+groups, with explicit completion rates and Monte Carlo uncertainty.
+These experiments are not universal complexity or performance guarantees. The certificate
+establishes the stated computational decisions for the binary input data, not
+best-subset optimality or statistical error control.
+\end{abstract}
+
+\section{The computational question}
+The supplied ARSS-JPS article~\cite{arss} prioritizes candidate fixed effects using a
+GLS score at the current covariance estimate and fully refits a shortlist. Its
+fixed-covariance identity does not certify the ranking after variance re-estimation.
+The present task is to identify the best addition over a specified candidate family
+without running a separate full optimizer for every candidate, and to return an
+explicit unresolved result if separation cannot be established within the budget.
+
+\begin{samepage}
+There are three different statements to distinguish:
+\begin{enumerate}
+\item a numerical local optimizer found a feasible likelihood value;
+\item a valid bound proves that a rival cannot beat that feasible value;
+\item the selected variables are true effects or their reported $p$-values are calibrated.
+\end{enumerate}
+\end{samepage}
+The theory addresses the first two; stage five measures statistical performance
+empirically. A selected best addition under the complete
+null is still a best addition; it need not be accepted by a subsequent stopping rule.
+
+\section{Model, profile objective and the score discrepancy}
+Let $X_M$ be the current fixed-effect design and let $X_C$ contain a prespecified
+candidate block. Write $X_{M+C}=[X_M,X_C]$. For each tested design assume full column
+rank and $y\notin\Span(X_{M+C})$. Consider
+\begin{equation}\label{eq:model}
+y\sim N(X_{M+C}\beta,\sigma^2R(\lambda)),\qquad
+R(\lambda)=I_n+\sum_{k=1}^q\lambda_kA_k,
+\quad A_k\succeq0,\quad \lambda_k\geq0.
+\end{equation}
+The matrices $A_k$ are fixed. They need not commute; for independent crossed
+intercepts, $A_k=Z_kZ_k^\top$. The residual scale is unrestricted and positive.
+
+For any tested design $X$, define
+\begin{align}
+P_X(R)&=R^{-1}-R^{-1}X(X^\top R^{-1}X)^{-1}X^\top R^{-1},\\
+S_X(\lambda)&=y^\top P_X(R(\lambda))y>0,\\
+F_X(\lambda)&=\log\det R(\lambda)+n\log\{S_X(\lambda)/n\}.
+\end{align}
+After maximizing over $\beta$ and $\sigma^2$, $F_X$ is $-2$ times the log likelihood
+up to the common constant $n\{1+\log(2\pi)\}$. This is ML, not REML.
+Let $g=\log\det R$ and $h_X=n\log(S_X/n)$, so $F_X=g+h_X$.
+This profiling and low-dimensional shape optimization are established;
+de Carvalho et al.~\cite{carvalho} derive the corresponding profiled objective
+and a compact angular parametrization. They are not claimed as new here.
+
+Fix a covariance-ratio domain $\Theta$ and define $F_X^*=\min_{\Theta}F_X$. If the
+current ratio $\widehat\lambda_M$ is a global minimizer on that domain, the full
+likelihood-ratio improvement is
+\begin{equation}\label{eq:lr}
+D_C=F_M^*-F_{M+C}^*.
+\end{equation}
+At $\widehat\lambda_M$, let $d_C=S_M-S_{M+C}$ and
+$\widehat\sigma_M^2=S_M/n$. The full-covariance GLS score is
+\begin{equation}
+Q_C=d_C/\widehat\sigma_M^2=nd_C/S_M.
+\end{equation}
+For a scalar addition, $d_C=(x_C^\top P_My)^2/(x_C^\top P_Mx_C)$; for a block the
+usual residualized Gram inverse gives the analogous expression.
+Merely profiling the scale at the same ratios already yields
+\begin{equation}\label{eq:scale}
+D_C\ \geq\ n\log\frac{S_M}{S_M-d_C}\ \geq\ Q_C,
+\end{equation}
+where the second inequality follows from $-\log(1-u)\geq u$ for $0\leq u<1$.
+Thus a small $Q_C$ is not an upper bound on what a full refit could achieve.
+
+\textbf{If the current fit is only local.} At any feasible $\lambda_0$, the same
+inequality holds with $D_C$ replaced by
+$\widetilde D_C=F_M(\lambda_0)-F_{M+C}^*$. It must not be re-labelled as a lower bound
+on the globally profiled statistic~\eqref{eq:lr}. Candidate ranking remains
+unaffected because the baseline is a common additive constant. The numerical
+score checks in this pilot use this explicitly feasible-baseline comparison.
+
+\section{A convex part of the profiled Gaussian objective}
+The following ingredients are elementary matrix-convexity facts; we include full
+proofs rather than treating them as new statistical phenomena. General background
+on supporting planes and log-determinant concavity is in~\cite{boyd}.
+
+\begin{lemma}[Log-convexity of the profiled residual]\label{lem:convex}
+For a fixed full-rank design $X$ and $y\notin\Span(X)$, the function
+$\lambda\mapsto\log S_X(\lambda)$ is convex on every convex domain on which
+$R(\lambda)$ is positive definite. For $A_k\succeq0$,
+\begin{equation}\label{eq:gradient}
+\partial_k h_X(\lambda)
+=-n\,\frac{y^\top P_X A_kP_Xy}{S_X(\lambda)}.
+\end{equation}
+\end{lemma}
+\begin{proof}
+Let $K$ have orthonormal columns spanning $\ker X^\top$. Then
+$P_X=K(K^\top RK)^{-1}K^\top$. Along a line $R(t)=R+tA$ in the positive-definite
+domain, differentiation gives $P'=-PAP$ and $P''=2PAPAP$. Hence
+\[
+S'=-y^\top PAPy,\qquad S''=2y^\top PAPAPy.
+\]
+At the point under consideration set $u=P^{1/2}y$ and $B=P^{1/2}AP^{1/2}$. Since
+$S=u^\top u>0$ and $B$ is symmetric, Cauchy--Schwarz gives
+\begin{align*}
+(\log S)''
+&=\frac{2u^\top B^2u}{u^\top u}
+ -\frac{(u^\top Bu)^2}{(u^\top u)^2}\\
+&\geq\frac{(u^\top Bu)^2}{(u^\top u)^2}\geq0.
+\end{align*}
+This proves convexity on every line. Taking $A=A_k$ yields~\eqref{eq:gradient}.
+The directional argument does not require $A$ to be positive semidefinite.
+\end{proof}
+
+This lemma does \emph{not} make the complete profile objective convex: $g$ is
+concave. No assumption of global likelihood concavity or uniqueness of a local
+optimizer is used below.
+
+\section{A box bound and an explicit correction \texorpdfstring{$B_C$}{B-C}}
+Let $B=[a,b]\subset\R_+^q$ be a closed box, and let $\vertx(B)$ denote its $2^q$
+vertices. For any anchor $c$ in the covariance domain define
+\begin{equation}\label{eq:box}
+L_X(B;c)=\min_{v\in\vertx(B)}
+\left[g(v)+h_X(c)+\nabla h_X(c)^\top(v-c)\right].
+\end{equation}
+
+\begin{theorem}[A global bound on a box]\label{thm:box}
+For every $\lambda\in B$, $F_X(\lambda)\geq L_X(B;c)$. Consequently, for a finite
+box partition $\calP$ of $\Theta$ and any finite sets of anchors $\mathcal A_B$,
+\begin{equation}\label{eq:partition}
+\underline F_X(\calP)=\min_{B\in\calP}\ \max_{c\in\mathcal A_B}L_X(B;c)
+\ \leq\ F_X^*.
+\end{equation}
+Valid parent-box lower bounds may also be retained in the maximum when a box is split.
+\end{theorem}
+\begin{proof}
+Convexity yields $h_X(\lambda)\geq h_X(c)+\nabla h_X(c)^\top(\lambda-c)$.
+Express $\lambda=\sum_v w_vv$ as a convex combination of box vertices. Since
+$R$ is affine and $\log\det$ is concave,
+$g(\lambda)\geq\sum_vw_vg(v)$. Combining the inequalities gives
+\[
+F_X(\lambda)\geq\sum_vw_v\left[g(v)+h_X(c)+\nabla h_X(c)^\top(v-c)\right]
+\geq L_X(B;c).
+\]
+Taking maxima of valid lower bounds on a box and then the minimum across a covering
+partition proves~\eqref{eq:partition}. A parent bound remains valid on each child.
+\end{proof}
+
+For comparison, Loewner monotonicity alone gives the simpler bound
+\begin{equation}\label{eq:loewner}
+F_X(\lambda)\geq g(a)+n\log\{S_X(b)/n\},\qquad \lambda\in[a,b].
+\end{equation}
+Indeed, $R(a)\preceq R(\lambda)\preceq R(b)$; the log determinant is increasing and
+the minimum GLS residual is decreasing in this order. This bound is implemented
+as an optional ablation. All reported main results use~\eqref{eq:box}.
+
+\begin{corollary}[The requested GLS-to-refit bound]\label{cor:B}
+If the baseline in~\eqref{eq:lr} is globally optimized on $\Theta$, then
+\begin{equation}\label{eq:BC}
+Q_C\leq D_C\leq Q_C+B_C(\calP),\qquad
+B_C(\calP)=F_M^*-\underline F_{M+C}(\calP)-Q_C\geq0.
+\end{equation}
+For a merely feasible baseline, replace $F_M^*$ and $D_C$ by $F_M(\lambda_0)$ and
+$\widetilde D_C$, respectively.
+\end{corollary}
+\begin{proof}
+The lower bound is~\eqref{eq:scale}. The upper bound follows directly from
+$F_{M+C}^*\geq\underline F_{M+C}(\calP)$.
+\end{proof}
+
+Unlike a local Taylor approximation with an unverified Hessian condition,
+\eqref{eq:BC} bounds all covariance values in the stated domain. The cost and
+tightness depend on the partition. Computing an arbitrarily tight bound can be
+expensive; the result does not imply a universal speed-up.
+
+\subsection{How the bound tightens}
+\begin{theorem}[Quadratic consistency of the box bound]\label{thm:rate}
+Suppose $0\preceq\nabla^2 h_X\preceq H_XI$ on $B$, and let $c$ be its midpoint.
+If $d_B=\|b-a\|_2$, then
+\begin{equation}\label{eq:rate}
+0\leq\min_{\lambda\in B}F_X(\lambda)-L_X(B;c)
+\leq H_Xd_B^2/8.
+\end{equation}
+On a root box with lower corner $a_0$, one valid, generally conservative choice is
+\begin{equation}\label{eq:H}
+H_X=2n\sum_{k=1}^q\alpha_k^2,\qquad
+\alpha_k=\|R(a_0)^{-1/2}A_kR(a_0)^{-1/2}\|_{\mathrm{op}}.
+\end{equation}
+\end{theorem}
+\begin{proof}
+For each vertex $v$, smooth convexity gives
+$0\leq h_X(v)-h_X(c)-\nabla h_X(c)^\top(v-c)\leq H_X\|v-c\|^2/2
+=H_Xd_B^2/8$. Therefore every expression minimized in~\eqref{eq:box} is at least
+$\min_BF_X-H_Xd_B^2/8$. The opposite inequality is Theorem~\ref{thm:box}.
+
+To prove~\eqref{eq:H}, in the proof of Lemma~\ref{lem:convex} use
+$(\log S)''\leq2\|P^{1/2}AP^{1/2}\|_{\mathrm{op}}^2$. Since
+$P\preceq R^{-1}$, $R\succeq R(a_0)$ and $A_k\succeq0$,
+$\|P^{1/2}A_kP^{1/2}\|_{\mathrm{op}}\leq\alpha_k$. For
+$A=\sum_kd_kA_k$, the triangle inequality and Cauchy--Schwarz bound the directional
+second derivative of $h_X$ by $2n(\sum_k\alpha_k|d_k|)^2
+\leq2n\sum_k\alpha_k^2\|d\|^2$.
+\end{proof}
+
+If an incumbent has feasible objective $U_*$ and every rival minimum is at least
+$U_*+\delta$, a partition with
+$\max_Bd_B^2<8\delta/\max_CH_{M+C}$ suffices to exclude every rival. This is a
+gap-dependent sufficiency result. It does not prove that a particular best-first
+implementation has that many steps, nor that a local incumbent always has such
+a gap. An exact tie has no positive separation gap.
+
+\section{Excluding the unbounded variance-ratio tails}
+The compact-domain restriction can be removed under an additional, checkable
+condition. Suppose $A_k=Z_kZ_k^\top$, let $Z=[Z_1,\ldots,Z_q]$, and define
+\begin{equation}
+s_X^{\infty}=\dist\{y,\Span(X,Z)\}^2.
+\end{equation}
+The projection argument has a close antecedent in the coercivity proof of
+Zhou et al.~\cite{zhou}, Lemma 3. The formulation below makes candidate-specific
+floors and explicit coordinate cutoffs available to the screening calculation.
+This is calculated separately for each candidate; it is \emph{not} the residual
+from fitting all candidate columns simultaneously.
+
+\begin{theorem}[Data-dependent exclusion of all tails]\label{thm:tail}
+For every $\lambda\in\R_+^q$, $S_X(\lambda)\geq s_X^{\infty}$. Assume
+$s_*:=\min_{C\in\calC}s_{M+C}^{\infty}>0$ and each $A_k$ has positive rank.
+Let $T$ be the objective value of any feasible candidate and let $\eta>0$.
+Choose $U_k<\infty$ so that
+\begin{equation}\label{eq:tail}
+\log\det(I+U_kA_k)+n\log(s_*/n)\geq T+\eta.
+\end{equation}
+Then every candidate has objective at least $T+\eta$ outside
+$\Theta=\prod_k[0,U_k]$. Hence the globally best candidate over all nonnegative
+variance ratios can be identified by screening on this finite box.
+\end{theorem}
+\begin{proof}
+On the orthogonal complement of $\Span(Z)$, $R$ and $R^{-1}$ act as the identity,
+and on $\Span(Z)$ the inverse is positive definite. Thus
+$R^{-1}\succeq\Pi_{\Span(Z)^\perp}$. Minimizing over $\beta$ yields
+\[
+S_X(\lambda)\geq\min_{\beta}\|\Pi_{\Span(Z)^\perp}(y-X\beta)\|^2
+=\min_{\beta,u}\|y-X\beta-Zu\|^2=s_X^{\infty}.
+\]
+If $\lambda_k\geq U_k$, then $R(\lambda)\succeq I+U_kA_k$. Apply determinant
+monotonicity and the residual floor to obtain~\eqref{eq:tail} as a lower bound on
+$F_{M+C}(\lambda)$. A finite $U_k$ exists because $A_k$ has positive rank and its
+log determinant diverges with $U_k$. Every point outside the box violates at least
+one coordinate bound. The incumbent is feasible with value $T$, so no outside point
+can attain the best value.
+\end{proof}
+
+The box need not contain the minimizer of an irrelevant rival whose minimum is
+already worse than $T$. For a global bound on that rival's objective, use the
+minimum of its inside-box lower bound and its tail lower bound. If the positive
+residual-floor condition fails, this tail theorem is unavailable; it is a
+sufficient condition, not a necessary condition for existence of ML estimates.
+
+\section{Candidate exclusion, implementation and stopping}
+\begin{corollary}[Correct exclusion]\label{cor:exclude}
+Let $\overline F_{M+C_*}=F_{M+C_*}(\lambda_*)$ be feasible. If
+$\underline F_{M+C}>\overline F_{M+C_*}$, candidate $C$ cannot minimize the profiled
+objective among the candidate family. If this strict inequality holds for every
+rival, $C_*$ is the unique best candidate. The incumbent need not have been
+globally optimized. Fixed, model-specific penalties can be added to both bounds.
+\end{corollary}
+\begin{proof}
+$F_{M+C}^*\geq\underline F_{M+C}>\overline F_{M+C_*}\geq F_{M+C_*}^*$.
+\end{proof}
+
+The stage-one, scalar-only prototype performs the following operations.
+\begin{enumerate}
+\item Fit the current model from a common deterministic set of starts. Evaluate
+all one-variable additions at its ratios and locally refit the leading candidate.
+\item Construct the root-box lower bounds using its midpoint and the current
+model's ratio as two supporting-plane anchors.
+\item Exclude every rival whose global partition lower bound exceeds the best
+feasible objective, with a numerical cushion in the float64 implementation.
+\item Split the box with the smallest remaining rival bound along its longest
+side after normalizing by root-box widths. Evaluate all candidate profiles at the
+two new midpoints and preserve valid parent bounds.
+\item If a midpoint identifies a better feasible candidate, locally refit it and
+update the incumbent. Repeat until strict separation or the budget is exhausted.
+\end{enumerate}
+Its return status is \texttt{separated} or \texttt{unresolved}.
+An unresolved incumbent must not be presented as certified. The code does not
+silently resolve an exact tie by claiming a strict inequality.
+
+\subsection{Shared covariance calculations}
+Let $r=\sum_k\operatorname{col}(Z_k)$ and let $D$ repeat $\lambda_k$ along the
+corresponding random-effect columns. With $W=ZD^{1/2}$,
+\begin{equation}
+R^{-1}=I-W(I+W^\top W)^{-1}W^\top,
+\qquad \log\det R=\log\det(I+W^\top W).
+\end{equation}
+Precompute $Z^\top Z$, $Z^\top[X_M,X_{\calC},y]$, and the required base/candidate
+cross products. One $r\times r$ Cholesky factorization at each anchor serves every
+candidate. For scalar additions, only candidate diagonal Gram terms and their
+cross products with $X_M$ and $y$ are needed. The code does not build an $n\times n$
+covariance or a $p\times p$ candidate Gram matrix. Gradient components follow from
+$y^\top P_XA_kP_Xy=\|Z_k^\top P_Xy\|^2$.
+
+The number of vertices is $2^q$ and both implementations have dense cubic
+cost in $r$. This pilot targets few covariance components and modest random-effect
+rank. Large crossed grouping systems require a sparse implementation. Reusing
+Woodbury identities is established linear algebra, not by itself a novelty claim.
+
+\subsection{Likelihood-ratio decisions}
+For a likelihood-ratio stopping decision, bracket both model minima:
+$F_M^*\in[L_M,U_M]$ and $F_{M+C}^*\in[L_C,U_C]$. Then
+\begin{equation}\label{eq:stop}
+D_C\in[L_M-U_C,\ U_M-L_C].
+\end{equation}
+Accept a specified computational threshold only if the lower endpoint exceeds it;
+reject only if the upper endpoint is below it; otherwise refine. Repeating
+certified choices and certified threshold decisions yields the corresponding
+reference path by induction, subject to a specified tie convention. The new
+implementation below uses penalized objective comparisons instead. Exact
+ARSS-JPS replication would additionally require its screening gate and joint and
+mutual-conditional likelihood-ratio rules. Ordinary repeated tests do not become
+valid selective inference merely because their numerical values are
+certified~\cite{rugamer}.
+
+\section{A complete single-addition and pair-rescue policy}
+The second-stage pilot uses $\Theta=[0,4]^2$; the third-stage pilot uses
+$\Theta=\R_+^2$. Both use the criterion
+\begin{equation}\label{eq:bic}
+J(M)=F_M^*+|M|\log n.
+\end{equation}
+Here $M$ counts the selectable fixed-effect columns, excluding the always-present
+base columns. The residual scale and the number of allowed covariance components
+are common to every model; they contribute only a common parameter-count term.
+We refer to~\eqref{eq:bic} as a BIC-type criterion with observation-count penalty.
+Its statistical justification under a particular crossed-effects asymptotic regime
+is separate from the computational guarantee established here. Within a stage,
+the common term $|M|\log n$ is omitted from every candidate bound.
+
+\textbf{Reference policy.} Starting with the base model, compare the current
+support $M$ with all remaining single additions. If the best addition strictly
+decreases $J$, accept it and repeat. Otherwise compare $M$ with all remaining
+two-variable additions. If the best pair strictly decreases $J$, accept it and
+return to the single-addition phase; otherwise stop. The reference retains the
+current model on an equal-value stopping tie and uses lexicographic order for
+equal improving candidates. Our verified procedure does not force a decision
+when the bounds cannot establish strict separation.
+
+Every family includes the current model as candidate zero. Therefore selecting
+candidate zero certifies that none of the specified additions improves the
+criterion. No residual-correlation gate or top-$L$ truncation is used for pairs.
+For $m$ remaining variables there are $\binom{m}{2}$ pairs, all of which are part
+of the comparison. This explicit reference distinguishes the procedure from
+the published ARSS-JPS protocol.
+
+\begin{theorem}[Conditional correctness of a complete path]\label{thm:path}
+Suppose every tested design is full rank with positive residual, and the same
+covariance domain and penalty are used at every step. The domain may be compact
+or the full orthant covered by the tail certificates below. For a family
+$\{M\}\cup\{M+C:C\in\calC\}$, let $L_C\leq J(M+C)$ and let $U_{C_*}$ be
+an attained or upward-enclosed feasible penalized value for an incumbent.
+If $L_C>U_{C_*}$ for every rival, that family's unique minimizing support is
+$M+C_*$. If this property holds at every step of a completed execution, the
+execution has the same additions and stopping decisions as the reference policy.
+Its terminal support has no improving single or pair addition.
+\end{theorem}
+\begin{proof}
+For each rival, $J(M+C)\geq L_C>U_{C_*}\geq J(M+C_*)$.
+This proves the family decision, including the case $C_*=\varnothing$.
+Both procedures start from the same support. Inductively, the same previous
+support and phase produce the same complete candidate family and the same
+certified next decision. Each accepted block increases support size, so a
+completed execution has finitely many additions. At termination the two families
+have been rejected, unless there are insufficient remaining variables, in which
+case the corresponding family is empty. The claim is about additions, not
+deletions, swaps or all possible subsets.
+\end{proof}
+
+\begin{corollary}[Conditional improvement of a rescued pair]
+If single additions have stopped and pair $\{j,k\}$ is accepted, then
+$J(M+j+k)<J(M+j)$ and $J(M+j+k)<J(M+k)$.
+\end{corollary}
+\begin{proof}
+Single stopping gives $J(M+j),J(M+k)\geq J(M)$, and pair acceptance gives
+$J(M+j+k)<J(M)$. Combine the inequalities.
+\end{proof}
+Thus both members of a rescued pair satisfy a conditional \emph{BIC-improvement}
+condition. This is not the mutual conditional $p$-value criterion from ARSS-JPS.
+
+\section{From analytic bounds to checked numerical decisions}
+The new code separates the float64 search from a verifier using Arb, an
+arbitrary-precision midpoint-radius interval library~\cite{arb}. The search
+proposes an incumbent covariance point and a finite binary partition tree.
+Its heuristic numerical cushions do not enter the final proof decision.
+
+\subsection{The numerical contract}
+The data arrays $y,X,Z_k$ are interpreted as their exact stored binary values.
+All covariance ratios in the witness are also exact binary values. Arb imports
+these values and recomputes the data cross products, small-matrix solves,
+determinants, logarithms and residual derivatives. It does not import rounded
+float64 Gram matrices as exact inputs. The constant $\log n$ in the penalty is
+enclosed as well. The contract concerns numerical roundoff, not measurement error
+or uncertainty in unrounded source data.
+
+For each anchor $c$ and vertex $v$, the verifier encloses
+\begin{equation}
+g(v)+h_X(c)+\nabla h_X(c)^\top(v-c)+|C|\log n
+\end{equation}
+using ball arithmetic. The lower endpoint is a valid lower bound for that
+expression. Taking the minimum of these lower endpoints over vertices, the
+maximum over anchors and inherited parent bounds, and finally the minimum over
+partition leaves preserves validity. At the feasible incumbent point the upper
+endpoint of its penalized objective provides $U_{C_*}$. The final comparison
+uses verified strict inequalities, not differences of printed decimal midpoints.
+
+\begin{theorem}[Soundness of a checked witness]\label{thm:verified}
+Assume the analytic model conditions above and enclosing arithmetic operations.
+If the verifier checks a complete partition of $\Theta$, correctly constructs
+the lower and upper endpoints just described, and finds every rival lower bound
+strictly greater than the incumbent upper bound, its reported family decision
+is correct for the stored data. The float64 optimizer need not find a global
+minimum, and the float64 search bounds need not themselves be verified.
+\end{theorem}
+\begin{proof}
+Each enclosed point quantity contains its exact value. The supporting-plane
+bound is valid everywhere on its box, and taking a lower endpoint cannot increase
+it beyond the exact expression. Minimum, maximum and restriction to a child box
+preserve the stated lower-bound properties. Complete leaf coverage yields a
+global lower bound on $\Theta$. The incumbent upper endpoint is at least its
+attained objective. Apply Corollary~\ref{cor:exclude} and
+Theorem~\ref{thm:path}.
+\end{proof}
+
+The software validates the input fingerprint, nonnegative feasible covariance
+points, the root box, and that every internal node splits into exactly two
+children covering its parent. Full-path replay independently constructs all
+single/pair families and checks phase order and support changes. Removing a
+rival or half of the covariance domain invalidates the witness. Failure to
+establish a positive residual, a valid solve or strict separation produces no
+certificate. This uses the trusted Arb implementation and the proved formulas;
+it is not a machine-checked formal proof of the entire Python program.
+
+\subsection{Implementation and limits}
+\texttt{certified\_path.py} implements the block engine, search, verifier and full
+policy. Each local fit uses the same deterministic starts as the all-model
+comparator: four current-model starts and those four plus the fitted current
+ratios for candidates. A new midpoint can supply an additional candidate start.
+The search shares covariance factorizations and anchor calculations across the
+family. The verifier also caches covariance calculations across path stages.
+
+Unlike the stage-one scalar engine, this block engine forms a full predictor
+Gram matrix. Both pair enumeration and the associated storage can grow
+quadratically in $p$, and the random-effect solve is dense. This is an implementation
+for modest family sizes, not a demonstrated high-dimensional pair algorithm.
+Arb uses 128-bit precision in the path pilot; precision can be specified explicitly.
+It is not automatically increased until every difficult input resolves.
+
+A checked decision is marked \texttt{verified}; a finished path is
+\texttt{complete}. When the next decision cannot be certified, the output is
+\texttt{unresolved\_budget} or \texttt{unresolved\_numeric}.
+Invalid or rank-deficient input models can raise an explicit error. No unresolved
+incumbent is promoted to a certified addition. The original stage-two verifier
+retains its compact-box scope. The additional global verifier described next
+requires an explicit, independently checked tail certificate for every stage.
+
+\subsection{Verified exclusion of the complement of a box}
+Let $d_C=|C|$ and suppose a verified lower bound
+$0<\ell_C\leq s_{M+C}^{\infty}$ is available for each support in the family,
+including the current model. For cutoffs $U_k>0$, define
+\begin{equation}\label{eq:verifiedtail}
+\tau_C=\min_{1\leq k\leq q}\log\det(I+U_kZ_k^\top Z_k)
+       +n\log(\ell_C/n)+d_C\log n.
+\end{equation}
+By determinant monotonicity, Sylvester's determinant identity and
+Theorem~\ref{thm:tail}, this is a lower bound on the penalized objective everywhere
+outside $B=\prod_k[0,U_k]$. The common $|M|\log n$ term is omitted throughout
+this family comparison.
+
+\begin{theorem}[Checked decisions on the nonnegative orthant]\label{thm:global}
+Suppose the verifier encloses positive projection floors and the quantities
+in~\eqref{eq:verifiedtail}, and verifies a complete partition of $B$. Let
+$L_C^{\rm box}$ and $\underline\tau_C$ be the resulting lower bounds, and let
+$U_*$ be an upward-enclosed feasible value for a winning support at a point of $B$.
+If both $L_C^{\rm box}>U_*$ and $\underline\tau_C>U_*$ hold for every rival,
+the winning support is the unique best support in that family over $\R_+^q$.
+Completed paths of such decisions follow the full-orthant reference policy.
+Different stages may use different certified boxes.
+\end{theorem}
+\begin{proof}
+The two bounds cover $B$ and its complement, respectively. Thus
+$\min\{L_C^{\rm box},\underline\tau_C\}$ is a lower bound for each rival over
+the entire orthant. Strict comparison with the feasible upper bound proves the
+decision. The reference domain remains $\R_+^q$ at every stage, even though the
+finite cover used to certify it changes. Apply Theorem~\ref{thm:path} inductively.
+\end{proof}
+
+\textbf{Computing a floor without a numerical rank assumption.}
+The matrix $[X_{\rm base},Z]$ is usually rank deficient for crossed intercepts.
+\texttt{certified\_global\_path.py} converts each stored binary number to its
+exact rational value and uses FLINT rational row reduction to select original
+columns that span this entire matrix. This establishes the span, rather than
+only verifying independence of a proposed smaller matrix. Arb recomputes the
+projection Gram products. After projecting all selectable columns and $y$ off
+this base/random space, a small support-specific Schur complement encloses
+$s_{M+C}^{\infty}$. If a candidate lies in the already projected space, a full
+exact rank reduction of its augmented design supplies a spanning basis instead.
+The floor is recomputed from data during replay; saved floor or rank claims are
+not accepted as proof. Rational matrix operations are documented in the
+python-flint interface cited with~\cite{arb}.
+
+\textbf{Constructing the finite search region.}
+Current-model multistart fitting begins on $[0,4]^q$ and enlarges the pilot box
+by a factor of four when an upper boundary is active, for at most six expansions.
+This supplies only a feasible incumbent. For each coordinate, powers of two
+starting at 4 are then tested in Arb until the tail lower bound for every family
+member exceeds the incumbent upper bound by 1. These strict inequalities alone
+authorize the finite search box. The implementation allows at most 50 doublings.
+An unproved positive floor, an identically zero covariance component, or failed
+tail construction returns \texttt{unresolved\_tail}; it does not justify a global
+decision or establish nonexistence of ML.
+
+Wide cutoffs motivate splitting at the midpoint of $\log(1+\lambda_k)$ and
+choosing the coordinate with the largest current logarithmic width. Anchors
+use the same geometric center in shifted coordinates. This changes search
+geometry only: tangents and all bounds remain in the original affine $\lambda$
+coordinates. The verifier checks the resulting exact binary partition endpoints
+and does not rely on the search's midpoint formula. Logarithmic subdivision is
+a computational refinement, not a claimed new global-optimization principle.
+
+\section{A structured verifier for two crossed intercepts}\label{sec:structured}
+The float64 search, BIC policy, variance domain and witness format can remain
+unchanged while the verified numerical backend is specialized. Suppose $q=2$
+and each row of $Z_k$ contains exactly one entry equal to 1 and all remaining
+entries equal to 0. The implementation checks this condition on the original
+binary arrays. It does not infer orthogonality by thresholding small products.
+For exposition, reorder the components so that $r_L\geq r_S$, and write
+\[
+Z^\top Z=\begin{pmatrix}N_L&C\\C^\top&N_S\end{pmatrix},\qquad
+D_L=I+\lambda_LN_L,\qquad
+T=I+\lambda_SN_S-\lambda_L\lambda_SC^\top D_L^{-1}C.
+\]
+The count matrices $N_L,N_S$ are diagonal. Eliminating the larger diagonal block
+leaves a dense Schur complement of dimension $r_S=\min(r_1,r_2)$.
+
+\begin{lemma}[Structured covariance identities]\label{lem:schur}
+Let $H$ concatenate all base columns, selectable predictors and $y$, and let
+$B_L=Z_L^\top H$, $B_S=Z_S^\top H$. For nonnegative ratios define
+\begin{align}
+E_S&=T^{-1}(B_S-\lambda_LC^\top D_L^{-1}B_L),\\
+E_L&=D_L^{-1}(B_L-\lambda_SC E_S).
+\end{align}
+Then $E_k=Z_k^\top R^{-1}H$, and
+\begin{align}
+\log\det R&=\sum_{i=1}^{r_L}\log(1+\lambda_L n_{Li})+\log\det T,\label{eq:schurdet}\\
+H^\top R^{-1}H&=H^\top H-\lambda_L B_L^\top E_L-\lambda_S B_S^\top E_S.
+\end{align}
+These identities also hold when either ratio is zero and when some group columns
+are unused. The Schur complement remains positive definite.
+\end{lemma}
+\begin{proof}
+For $D=\diag(\lambda_LI,\lambda_SI)$, the identity
+$Z^\top R^{-1}H=(I+Z^\top ZD)^{-1}Z^\top H$ yields block equations
+$D_LE_L+\lambda_SC E_S=B_L$ and
+$\lambda_LC^\top E_L+(I+\lambda_SN_S)E_S=B_S$.
+Elimination gives the displayed formulas. The determinant follows by block
+elimination and Sylvester's identity; the last identity follows from
+$R^{-1}=I-ZD(I+Z^\top ZD)^{-1}Z^\top$. For positive ratios, $T$ is the Schur
+complement of the positive definite symmetric matrix
+$I+D^{1/2}Z^\top ZD^{1/2}$. At either zero ratio its formulas directly reduce
+to a positive diagonal matrix. Unused columns contribute identity entries.
+\end{proof}
+
+\textbf{Shared gradient products.}
+At each anchor compute $G_k=E_k^\top E_k$ once. For a candidate model with full
+fixed design $X$ (including its base and current support), let
+$v_C$ be the coefficient vector over the columns of $H$ with last entry 1,
+fixed-design entries $-\widehat\beta_X$ and other entries zero. Then
+\begin{equation}\label{eq:sharedgradient}
+y^\top P_X A_k P_X y=\|Z_k^\top R^{-1}(y-X\widehat\beta_X)\|^2
+                      =v_C^\top G_k v_C.
+\end{equation}
+Each candidate gradient uses only the small selected submatrix of $G_k$.
+The backend avoids copying an $r_k$-row matrix for every candidate at every
+anchor. Arb encloses these quadratic forms, including subtraction error; their
+printed midpoints are not used as certified values.
+
+\begin{corollary}[Soundness with the structured backend]
+Under the checked two-intercept structure and the preceding model conditions,
+replacing the generic covariance and gradient calculations by the structured
+Arb enclosures preserves the full-orthant certificate of Theorem~\ref{thm:global}.
+\end{corollary}
+\begin{proof}
+Lemma~\ref{lem:schur} and~\eqref{eq:sharedgradient} give the same exact quantities
+used in the analytic bound. Enclosing each arithmetic operation gives admissible
+point intervals, to which the existing partition and tail arguments apply.
+\end{proof}
+The two backends can have different enclosure widths. This corollary does not
+guarantee identical success or runtime at a fixed precision and finite budget.
+
+\textbf{Vertex work and memory.}
+At a vertex used only for $g(v)$, the specialized code applies
+\eqref{eq:schurdet} without solving all predictor right-hand sides. Large
+covariance and gradient-product caches each retain at most 32 entries; the
+profile cache retains at most 256. Evicted quantities are recomputed with the
+same verified operations. A separate cache retains scalar determinants.
+Cache eviction changes runtime and memory, not the validity of a bound.
+
+If $d$ denotes the number of columns of $H$, the principal dense per-anchor
+operations have arithmetic cost of order
+$r_Lr_S^2+r_S^3+r_Lr_Sd+r_S^2d+(r_L+r_S)d^2$, followed by support-specific
+small solves and quadratic forms. This is an operation-count description, not
+a bit-complexity theorem or a complete-path bound: the number of anchors and
+candidate supports also matters. The implementation still stores dense input
+designs and predictor products. For balanced group counts the dense cubic
+order in $r$ remains; the claimed improvements are measured computational savings.
+The code
+constructs a dense Schur complement, uses exact
+rational rank reduction for the tail floor, and enumerates every pair. Bounded
+large-matrix caches do not bound total process memory independently of the
+witness tree or candidate count.
+
+These are standard block-elimination, quadratic-form and caching techniques.
+Sparse computational methods for mixed models are already established, including
+the framework of Bates et al.~\cite{lme4}. The contribution tested here is their
+use within the checked decision pipeline. \texttt{CrossedArbGaussian} explicitly
+rejects weighted or multiple memberships and covariance structures with other
+than two components; the original generic verifier remains available for them.
+
+\section{Stage-one pilot protocol and observed results}
+\subsection{Protocol}
+The main pilot has seven scenarios and five deterministic seeds per scenario,
+with $n=400$, $p=30$, 10 origin groups and 12 destination groups. Covariance matrices
+are generated by the observed crossed memberships; balanced commuting matrices
+are not assumed. The base design is an intercept. Candidate columns are centered
+and standardized. Default random-intercept standard deviations are 0.7 and 0.8;
+residual standard deviation is one. The ratio box is $[0,4]^2$.
+
+The scenarios are: a strong separated signal; two weaker signals; predictors
+aligned with origin/destination effects; unbalanced origin memberships; one zero
+random variance; the complete null; and two highly correlated candidate columns
+with correlation 0.9995. Exact recipes and seed mappings are in
+\texttt{run\_experiments.py}. These designs were set after three exploratory
+feasibility runs; they are not a preregistered confirmatory study.
+
+The comparator fits every candidate by the same compressed Gaussian objective
+and multi-start L-BFGS-B optimizer. Both methods use the same four baseline starts
+and the same five initial candidate starts (the fitted baseline plus the four
+common starts). A candidate discovered at a later box midpoint may receive one
+additional start in the screening method. The comparator is an all-candidate
+multi-start calculation, \emph{not} a independently certified global-ML oracle.
+The exclusion theorem does not require treating that comparator as a global oracle.
+
+Each method has an independent engine and no cross-method fit cache. Execution
+order alternates by seed parity. Timings include construction of shared products,
+baseline fitting, anchor and vertex calculations, and local candidate optimization.
+BLAS thread counts are one. A ``candidate fit'' is one separate multi-start
+optimization for that candidate, not one likelihood evaluation. The screening
+algorithm still evaluates many candidate objectives at shared ratio points.
+Timing summaries are descriptive single-run measurements on this runtime;
+per-method peak memory was not benchmarked.
+
+\subsection{Main results}
+\input{results/main_table.tex}
+All 35 main datasets achieved strict numerical separation and selected the same
+candidate as the multi-start comparator. There were 36 separate candidate fits
+versus $35\times30=1050$, a 96.57\% reduction in that count. The median ratio of
+comparator time to screening time was 11.72, with observed range 3.89--16.54.
+These ratios do not compare against ARSS-JPS, an optimized top-$K$ heuristic, or
+contemporary $\ell_0$ mixed-model software.
+
+\begin{figure}[H]
+\centering\includegraphics[width=\linewidth]{figures/pilot_summary.pdf}
+\caption{Main one-step pilot: separate candidate optimizations and measured
+time ratios. Points are individual datasets; timing advantages apply to the
+stated all-candidate comparator and implementation.}
+\end{figure}
+
+\subsection{A genuine ranking reversal}
+In the group-aligned scenario with seed 202609344, the leading GLS candidate is
+$x_2$ with $Q_2=9.61577$, ahead of $x_1$ with $Q_1=7.99677$. Full covariance
+refitting reverses their order: $F_{M+x_2}=52.53038$ and
+$F_{M+x_1}=49.43451$ (smaller is better). The screening method refits both and
+certifies $x_1$ as best. Thus the prototype is not just returning the initial
+GLS leader on every dataset. This example illustrates a failure of a top-one
+heuristic; it does not establish a failure of the published ARSS-JPS default shortlist.
+
+\subsection{Scaling, domain size and unresolved ties}
+\input{results/scaling_table.tex}
+Six additional one-step diagnostics with $n=1000$ and $p\in\{100,300\}$ all
+resolved and agreed with the comparator, each using one separate candidate fit.
+They are one dataset per configuration and support feasibility, not a reliable
+scaling law. The random-effect rank remained 22 and did not grow with $n$ or $p$.
+
+For a fixed group-aligned dataset, increasing the box from $[0,1]^2$ to $[0,4]^2$
+and $[0,16]^2$ retained the same winner but required 24, 89 and 178 splits,
+respectively. Agreement of these three winners is not a proof about an unbounded
+domain. The tail construction supplies such a domain argument separately.
+
+An exact duplicate-candidate test ($n=300$, $p=12$, seed 47771) had equal minimum
+objectives for two candidates. After 250 allowed splits it returned
+\texttt{unresolved} with two remaining candidates. This is the intended behavior
+under the strict-separation rule.
+
+\subsection{Automatic exclusion of unbounded tails}
+For the weak-signal dataset with seed 202609240, Theorem~\ref{thm:tail} produced
+upper ratios approximately $(249.881,65.039)$. Screening on that box resolved
+after 427 splits. For the group-aligned dataset with seed 202609340, the upper
+ratios were approximately $(289.702,72.687)$ and screening resolved after 183
+splits. In both cases, the inside-box incumbent was strictly below the analytic
+outside-domain lower bound, and the candidate agreed with the all-candidate
+comparator on the enlarged box. The theoretical result therefore covers the
+unbounded ratio domain in these examples, conditional on the stated positive
+residual floors and exact arithmetic.
+
+\subsection{Cost of a certificate versus a short heuristic}
+\input{results/top3_text.tex}
+
+\subsection{Independent numerical verification}
+The fast objective was compared to a dense covariance Cholesky and independently
+whitened least-squares calculation. On the original 45 comparisons, the largest
+absolute discrepancy was $5.69\times10^{-14}$. Finite-difference objective
+gradients differed from analytic gradients by at most $1.64\times10^{-8}$.
+There were no violations in 6750 independent dense checks of the box lower bound.
+Additional checks with three current fixed-effect columns had maximum error
+$2.85\times10^{-14}$; dense checks in the enlarged tail regions had error at most
+$3.43\times10^{-11}$. No sampled tail-bound violations were found.
+
+These stage-one checks target algebraic and implementation mistakes. They are not
+a proof of floating-point enclosure for every input, and these historical runs
+have not been retroactively relabelled as Arb-verified. The second-stage results
+below use the explicit numerical contract described above.
+
+\section{Stage-two complete-path pilot}
+\subsection{Design and comparison}
+The new experiment uses five scenarios with three deterministic seeds each,
+$n=240$, $p=10$, four origin groups and five destination groups. Both membership
+assignments are independently sampled uniformly. Default random-intercept standard
+deviations are 0.7 and 0.8, with unit residual standard deviation. Predictors are
+centered and standardized. The covariance-ratio box is $[0,4]^2$ and the verified
+criterion is~\eqref{eq:bic}. All generated data are saved alongside the witnesses.
+
+The scenarios are: three signals of sizes $(0.8,0.5,0.3)$; a suppressor pair
+with correlation 0.98, coefficients $(4,-4)$ and an additional independent signal
+of 0.55; a boundary model with random-effect standard deviations $(0,0.2)$ and
+signals $(0.6,0.3)$; the complete null; and near-tied predictors with correlation
+0.9995 and signals $(0.8,0.4)$ on the first and third columns. Seed mapping and
+generation order are specified in \texttt{run\_path\_experiments.py}.
+The final design followed one separate exploratory software check, which is
+excluded from the reported 15 datasets.
+
+The comparator evaluates every model in the same single/pair policy using the
+same local multi-start ML routine. It is not a global-ML oracle; the witness,
+rather than agreement with this comparator, establishes a decision. Separate
+engines and caches are used by each method. Execution order alternates with seed
+parity, and BLAS has one thread. The measured verified time includes data products,
+search, all Arb setup and decision verification. A subsequent independent replay
+of saved witnesses and file writing are excluded from timing. Fit counts here
+include current-model fits; stage-one candidate-only counts use a different definition.
+
+\subsection{Observed results}
+\input{results/path/path_table.tex}
+All 15 paths completed, and all 63 decisions were verified at 128-bit precision.
+They agreed with all corresponding single-addition, pair and stopping decisions
+of the comparator. All saved paths also passed replay from the original arrays.
+The procedure required 93 separate multi-start model fits versus 972. The median
+comparator/verified time ratio was 2.88, with range 0.79--4.44. Two near-tie cases
+were slower with certification; there is no universal speed advantage.
+
+\begin{figure}[H]
+\centering\includegraphics[width=\linewidth]{figures/path_pilot.png}
+\caption{Second-stage full-path timing. Every point is one dataset, with all Arb
+verification cost included. Values below one mean certification was slower than
+the all-model local-ML comparator. Three repetitions per scenario are insufficient
+for precise performance-distribution estimates.}
+\end{figure}
+
+In all three suppressor examples the procedure first added $x_3$, certified
+single stopping, and then accepted $\{x_1,x_2\}$. It subsequently added a noise
+variable in one of these examples. Additional noise selections also occurred in
+other scenarios. These observations illustrate the difference between verified
+computation and correct recovery of the generating support; this small pilot
+does not estimate FDR, FWER or selection consistency reliably.
+
+\subsection{Targeted numerical and failure checks}
+Across 50 independent dense objective comparisons for empty, single, pair and
+larger supports, the largest discrepancy from the block/Arb point calculations
+was $9.53\times10^{-13}$. Finite-difference gradients differed by at most
+$2.90\times10^{-8}$. These are implementation diagnostics, distinct from the
+interval enclosures used in the decisions themselves.
+
+Five deliberately corrupted cases were rejected: a wrong data fingerprint,
+a missing half-box, an infeasible incumbent, a wrong winner, and an incomplete
+candidate family. A duplicate-predictor example with a 120-split budget returned
+\texttt{unresolved\_budget} without adding a variable. A separate zero-split
+budget test also remained unresolved.
+
+For a point calculation with columns differing by noise of magnitude $10^{-9}$,
+64-bit Arb precision could not verify a solve and raised an explicit exception.
+At 192 bits the same point evaluation succeeded with a finite enclosure.
+This checks fail-closed behavior under insufficient precision; it is not a
+verified full path for a severely ill-conditioned design.
+
+\section{Stage-three full-orthant pilot}\label{sec:globalpilot}
+\subsection{Design, comparator and scope}
+The 15 raw datasets from stage two were reused unchanged. Three prespecified
+seeds, 915260--915262, add a large-variance scenario with the same $n=240$, $p=10$
+and crossed grouping dimensions. The random-effect standard deviations are 4 and
+6, with residual standard deviation 1. Before centering and standardization,
+$x_1$ equals the first grouping design times $(-1,-0.3,0.4,1.2)^\top$ and $x_2$
+equals the second times $(-1,-0.5,0,0.5,1)^\top$. The other columns are independent
+standard normal draws; the nonzero fixed coefficients are $\beta_3=0.65$ and
+$\beta_5=0.4$. These group-aligned candidates also exercise the exact-rank fallback.
+All 18 generated/input datasets and full witnesses are saved.
+
+The new verified procedure uses Theorem~\ref{thm:global} and a 2500-split,
+45-second search budget per family, with 128-bit Arb arithmetic. Its comparator
+fits every model locally on $[0,1024]^2$ with the original four current-model
+starts and those four plus the fitted current point for candidates. Run order
+alternates by seed parity, and BLAS has one thread. The comparator is not a
+certified global oracle. For the three new examples, a further local run uses
+$[0,2048]^2$, and the finite-box verifier independently checks the $[0,4]^2$ path.
+
+\subsection{Observed paths and the effect of truncating variances}
+All 18 global paths completed, giving 76 verified decisions and three pair
+rescues. Every path replayed successfully and agreed with the comparator on
+$[0,1024]^2$. All three additional $[0,2048]^2$ comparisons agreed as well.
+The original 15 paths retained their stage-two decisions. For each large-variance
+seed the path changed relative to $[0,4]^2$, and for two seeds the terminal support
+changed. Table~\ref{tab:domainchange} gives the exact sequences.
+
+\input{results/global_path/global_table.tex}
+\input{results/global_path/domain_comparison_table.tex}
+
+Both sequences in each row are certified on their respective domains. The
+observed discrepancy therefore reflects a different optimization domain, rather
+than just two local solvers disagreeing. For seed 915261, both policies still
+select the zero-signal fixed predictor $x_2$, in different orders. These results
+do not establish statistical false-discovery control.
+
+There were 137 separate model-fit calls including current-model fits and pilot
+expansions, compared with 1150. The recorded median comparator/verified time was
+5.52, with range 1.01--9.81. All exact-rank, Arb construction and decision checks
+are included; additional replay and disk writing are excluded. The domains and
+initialization schemes differ, so this is \emph{not a matched-domain speedup
+estimate}. In particular, these ratios should not be compared directly with
+the stage-two timing ratios to infer the cost or benefit of tail checking.
+
+\begin{figure}[H]\centering
+\includegraphics[width=\linewidth]{figures/global_path_pilot.png}
+\caption{Third-stage observations. Each point is a dataset. Panel A records full
+runtime for the two stated procedures. Panel B shows the largest coordinate
+cutoff across all stages, on a logarithmic scale. The dashed line marks 4.
+Cutoffs are sufficient regions for a proof, not parameter estimates or confidence
+limits.}\label{fig:globalpilot}
+\end{figure}
+
+The largest automatic cutoff was 524288, whereas the largest coordinates of
+recorded feasible winning points in the three new examples were approximately
+35--48. The projection-floor tail bound is conservative. For seed 915260, at the
+single-stopping family with current support $\{x_3,x_5\}$, linear subdivision
+exhausted 2500 splits without a certificate; logarithmic subdivision verified the
+same decision after 98 splits. This saved, one-stage diagnostic changes both
+subdivision and anchor locations. It supports using the new geometry in these
+wide boxes, not a general complexity or universal speed claim. The geometry was
+developed using seed 915260; these are development examples rather than an
+independent held-out validation of the tuned algorithm.
+
+\subsection{Tail-specific correctness checks}
+Six Arb projection-residual enclosures contained their exact rational reference
+values on a small integer-data example, including a candidate exactly in the
+random-effect span. The reference calculation independently row-reduces the
+transposed full augmented design and solves its projection equations over the
+rationals. A response lying in the base/random space returned
+\texttt{unresolved\_tail}, as did a structurally zero covariance component.
+These are explicit limits of the implemented sufficient certificate.
+An exact tie also remained unresolved on the full orthant after 120 splits,
+with no accepted additions.
+
+The verifier rejected five deliberately invalid claims: missing tail metadata,
+a wrong data hash, an altered cutoff without a consistent partition, a missing
+rival, and a valid compact-box certificate relabelled as global. In the last
+case the compact-box check succeeded and the recomputed tail separation failed.
+Separate fresh-file replay checks verified both the new global format and the
+older compact-box format without running an optimizer.
+
+\section{Stage-four matched time and memory study}\label{sec:scalingpilot}
+\subsection{Design and measurement}
+The new pilot contains 18 input datasets with $n=800$. The group-count sweep
+fixes $p=20$ and uses $(r_1,r_2)=(10,15),(20,30),(40,60),(80,120)$. The
+candidate-count sweep fixes $(r_1,r_2)=(20,30)$ and uses $p=20,40,60$, reusing the
+$p=20$ configuration from the group sweep. The largest group and candidate
+counts are therefore \emph{not tested together}. Each of six configurations
+has two signal datasets and one suppressor dataset. Group labels have counts
+differing by at most one and are independently permuted for each component.
+Random-effect standard deviations are 0.7 and 0.8; residual standard deviation
+is 1. Signal datasets have $\beta_1=0.9,\beta_3=0.55$. Suppressor datasets have
+predictor correlation 0.995 and coefficients
+$(\beta_1,\beta_2,\beta_3)=(6,-6,0.6)$.
+Predictors are centered and standardized before forming the response.
+All other coefficients are zero. Seeds and exact data are saved.
+
+Both implementations use the same float64 engine, global BIC policy, starts,
+128-bit precision, 2000-split budget and 45-second search budget per family.
+The search budget is checked between search iterations, before completion of
+the full verifier; it is not a hard cap on a family's total runtime. The worker
+has a separate 240-second external timeout. Each backend runs in a fresh Linux
+subprocess with BLAS fixed at one thread, and execution order alternates by seed.
+Profiling, additional checks and extra replay are outside the timed workers.
+
+The timer includes model preparation, all local proposals, tree construction,
+exact rank/projection calculations and Arb decision verification. Peak memory
+is the Linux process high-water RSS read immediately after the completed path,
+in MiB. It includes the interpreter, imported libraries and loaded data, but not
+the parent orchestrator's memory or later serialization. The record also stores
+the process peak before starting the path. This is a total-process memory
+comparison, not an estimate of the size of the covariance matrices alone.
+
+\subsection{Observed comparison}
+Both implementations completed \ScalingComplete{}/\ScalingCases{} paired paths,
+with \ScalingStages{} verified decisions and \ScalingPairs{} pair rescues per
+backend. All paired paths agreed. Their serialized decision witnesses were
+identical, including the candidate families, data hash, automatic finite boxes,
+full partitions, anchors and feasible winning points. Thus the comparison
+changes the checked numerical implementation without changing the realized
+search task. Each implementation verified the identical witness independently.
+
+\input{results/scaling_path/scaling_table.tex}
+
+Across all input datasets, the median paired generic/structured runtime ratio
+was \ScalingRatio{}, with range \ScalingMinRatio{}--\ScalingMaxRatio{}.
+Median paired peak-RSS reduction was \ScalingMemoryReduction{}\%. The largest
+observed process peak was \ScalingGenericPeak{} MiB for the generic backend
+and \ScalingNewPeak{} MiB for the structured backend. At 200 random-effect
+columns, eliminating the larger diagonal block reduces the Schur solve to
+dimension 80. With 60 candidates, limiting cached large objects is particularly
+useful for memory. The four implementation changes were measured together;
+this study does not assign their separate causal contributions.
+
+\begin{figure}[H]\centering
+\includegraphics[width=\linewidth]{figures/scaling_path_pilot.png}
+\caption{Matched scaling study. Points are medians and bars show the minimum and
+maximum over two signal datasets and one suppressor dataset, not confidence
+intervals. Upper panels vary group counts at $p=20$; lower panels vary candidates
+with 20 and 30 groups. Both backends certify the same full-orthant policy and
+the same recorded decision witnesses.}\label{fig:scalingpilot}
+\end{figure}
+
+Three datasets per configuration do not determine reliable runtime or memory
+distributions. The specialization was developed after profiling smaller examples;
+this is a development scaling study. It does not establish high-dimensional
+statistical selection consistency, performance on thousands of groups, or
+superiority to an external method. Some completed paths select zero-signal
+variables despite having correct numerical certificates.
+
+\subsection{Independent algebra and verifier checks}
+Eighty combinations of a small integer-data model and variance point were
+checked using exact rational reference covariance inverses and derivatives.
+Reference log determinants and profile objectives were enclosed independently
+at 256 bits. Both 128-bit backends contained the exact matrix/gradient values
+and the independent logarithmic reference intervals. The cases cover either
+ordering of group sizes, zero ratios, unused group columns and disconnected
+group-incidence structures. One-entry caches forced eviction and recomputation
+of previously visited points.
+
+The structured backend also replayed all three saved stage-three large-variance
+paths. A new 100-column witness was read from fresh files and independently
+replayed using both the generic and structured implementations, without
+optimization. Invalid data hashes, missing half-boxes and wrong winners were
+rejected. Unsupported memberships and component counts raised explicit errors.
+The exact tie remained unresolved, and a zero projection floor returned
+\texttt{unresolved\_tail}. These checks target the new backend's algebra and
+decision contract; they do not constitute a formal verification of the software.
+
+\section{Repeated comparison of selection procedures}
+\subsection{Procedures and a shared fitting engine}
+The fifth stage uses five procedures. \emph{Verified BIC + pairs} is the
+full-orthant method above. \emph{Local BIC + pairs} evaluates every candidate
+in the same single/pair policy with separate multistart local ML fits.
+\emph{Local BIC singles} removes the pair stage. \emph{ARSS-JPS policy}
+uses the archived search function from the supplied article's repository.
+\emph{EN-CV + ML} selects a support by cross-validated elastic net and then
+fits that support as an unpenalized LMM with both random intercepts.
+
+The unchanged archived \texttt{arss\_family} function, commit
+\texttt{0cdcf976}, drives the ARSS comparison. Its source path, full revision
+identifier, source hash and MIT license are retained in the bundle.
+Fit and score adapters connect this search rule to
+the same profile-ML engine used by the other mixed-model procedures.
+The settings are $\alpha=0.01$, $K=3$, correlation gate $0.60$, and $L=5$.
+Single shortlists expand until a test passes or all singles fail. Pair testing
+retains the full eligible-pool denominator and both mutual conditional checks.
+Scaling score algebra from $V^{-1}$ to $R^{-1}$ changes it by a common positive
+factor, preserving rankings and correlations. This is a comparison of the
+published search policy under a shared fit adapter; it does not reproduce the
+original statsmodels engine's numerical behaviour or timings.
+
+The local fits start on $[0,4]^2$, use four deterministic starts and a current-model
+warm point for candidates, and expand active upper bounds by a factor of four,
+at most six times. A fit touching the final cap is unresolved. These local fits
+have no global certificate. A projected-gradient residual is recorded as a
+diagnostic; it is not a proof of global optimization. The verified procedure
+uses 128-bit Arb arithmetic, at most 2500 subdivisions per family and a
+30-second search-iteration budget; completing an Arb check can exceed that
+soft budget. A dataset worker has a separate 360-second external timeout.
+
+The elastic-net screen uses scikit-learn~\cite{sklearnenet}. Its grid has 13
+logarithmically spaced penalties from $10^{-3}$ to 1 and L1 proportions
+$0.5,0.9,1$. The support threshold is $10^{-7}$ in standardized training
+coordinates. The screen itself uses a marginal linear model; the crossed
+covariance is introduced in the final ML refit. Accordingly, EN-CV + ML is
+a specified two-stage baseline, not an implementation of penalized mixed-model
+likelihood. Native shrunken elastic-net prediction errors are also saved.
+
+\subsection{Simulation design and prediction target}
+The fixed grid contains six scenarios and 50 new seeds per scenario, for
+\ComparisonCases{} datasets. Every training sample has $n=300$, $p=12$ and
+6 and 8 crossed groups. Group counts differ by at most one and the two
+memberships are permuted independently. Standard predictors are independent
+normal variables. Unless stated otherwise, random-effect standard deviations
+are 0.7 and 0.8, and residual standard deviation is 1.
+\begin{enumerate}
+\item Signals: nonzero $(\beta_1,\beta_3,\beta_5)=(0.8,0.5,0.3)$.
+\item Weak signals: $(\beta_1,\beta_3,\beta_5)=(0.35,0.25,0.15)$.
+\item Suppressor: $\operatorname{Corr}(x_1,x_2)=0.995$ and
+$(\beta_1,\beta_2,\beta_3)=(6,-6,0.45)$.
+\item Null: all fixed coefficients zero, independent predictors.
+\item Correlated null: all coefficients zero, predictor equicorrelation 0.8.
+\item Group-aligned: $x_1$ is an independent origin-level normal draw plus
+normal noise of standard deviation 0.1; $x_2$ is defined similarly for the
+destination margin. Nonzero coefficients are $(\beta_3,\beta_5)=(0.65,0.4)$,
+and random-effect standard deviations are 2 and 3.
+\end{enumerate}
+Training predictors are centered and standardized before constructing the
+response, so the listed coefficients refer to that scale. The same training
+means and standard deviations transform test predictors. The test sample has
+1200 observations, 24 and 32 entirely new groups, and independent new random
+effects and residual noise. Its predictor construction follows the same scenario.
+All selectors receive only training arrays; test responses first enter after
+every selection and coefficient fit has finished.
+
+For each elastic-net inner split, groups on each margin are assigned to one
+of three folds. At fold $k$, training excludes groups assigned to $k$ on either
+margin; validation uses cells assigned to $k$ on both margins. Cells touching
+one held-out margin only are omitted from that split. Thus validation groups
+are absent from training on both margins, but the validation sets do not cover
+all training observations. A scaling transformer is fitted inside each split.
+The tuning criterion is validation mean squared error; the independent test
+sample is never used to choose a penalty.
+
+Every completed selected support receives a final local ML coefficient refit
+with the two random effects. For a new test point the prediction is
+$\widehat\beta_0+x_{\mathrm{new}}^\top\widehat\beta$, with no estimated random
+effect for unseen groups. We report both squared error relative to the true
+fixed population mean and error relative to the observed test response.
+The latter includes new random effects and noise. This is marginal prediction
+for new groups; it is not conditional prediction for previously observed groups.
+The computational certificate covers the selected support decisions, not the
+accuracy or global optimality of this final coefficient refit.
+
+\subsection{Measurements, uncertainty and results}
+A fresh subprocess handles each dataset, with one BLAS thread, independent
+model objects for the five methods and a rotating execution order. End-to-end
+time includes model preparation, search, tuning where applicable, all certificate
+construction and verification, and the final ML refit. Additional replay,
+held-out scoring, imports and disk writes are excluded. Per-method peak memory
+is not inferred from this shared-process design. Wall-clock scheduling variation
+is retained in the raw measurements; medians and 90th percentiles are reported.
+
+With true support $S_0$ and selected support $\widehat S$, a dataset contributes
+$|\widehat S\cap S_0|/|S_0|$ to TPR when $S_0\ne\varnothing$, and
+$|\widehat S\setminus S_0|/\max(1,|\widehat S|)$ to false-discovery proportion.
+Their Monte Carlo means estimate TPR and FDR for the stated scenarios.
+We also record exact support recovery, any-false-selection events and recovery
+of both suppressor variables, irrespective of whether they entered together.
+For an independent-dataset metric $m_b$, the Monte Carlo standard error is
+$s_m/\sqrt B$. Event proportions receive 95\% Wilson intervals. Paired
+differences use the same datasets; observations within a test set are not
+treated as independent Monte Carlo replicates.
+
+The verified method completed \ComparisonComplete{}/\ComparisonCases{} paths,
+with \ComparisonSteps{} verified decisions and \ComparisonPairs{} pair additions.
+All completed verified paths were replayed successfully. The full decision
+sequence agreed with local BIC + pairs in \ComparisonAgreed{} cases; the raw
+summary records the comparison denominator and all method failures separately.
+No partial path is counted as completed selection. Quality summaries use
+completed runs, with explicit denominators; paired summaries use joint completion.
+An observed local agreement does not replace the independent interval witness.
+
+\input{results/comparison/comparison_selection_tables.tex}
+\input{results/comparison/comparison_time_table.tex}
+\input{results/comparison/comparison_native_table.tex}
+
+\begin{figure}[!ht]\centering
+\includegraphics[width=\linewidth]{figures/comparison_methods.png}
+\caption{Repeated method comparison on new simulated datasets. Panels A and C
+show means with one Monte Carlo standard error; panel B shows event rates with
+95\% Wilson intervals; panel D shows median elapsed time without an uncertainty
+bar. Units of replication are datasets. The local-pair curve is omitted for
+readability; all five methods and completion denominators appear in the tables
+and raw summary. Predictive results use the final ML refits.}
+\label{fig:comparison_methods}
+\end{figure}
+
+\subsection{Elastic-net penalty-grid sensitivity}
+The primary penalty grid stops at 1, which may omit the intercept-only model
+at larger response scales. A separate sensitivity analysis retains every
+primary value, extends the grid to 10 and adds $10^6$ as an intercept-only
+candidate. The zero-coefficient KKT condition for that last penalty is checked
+in each training split and in the full training data. All three inner splits,
+mixing parameters, transformations and test datasets are unchanged.
+This secondary analysis is run after the timed primary benchmark; its timings
+are not substituted into the five-method table.
+\input{results/enet_sensitivity/sensitivity_table.tex}
+\input{results/enet_sensitivity/sensitivity_findings.tex}
+
+\subsection{Interpretation and remaining scope}
+\input{results/comparison/comparison_interpretation.tex}
+The BIC single/pair procedure and ARSS-JPS use different stopping rules, while
+elastic net is tuned for prediction. At $n=300$, a BIC single addition is
+compared against $\log(300)$; ARSS uses a chi-squared test at 0.01.
+These procedures therefore have no matched nominal familywise-error level.
+One method's increased recovery must be assessed alongside false selections
+and predictive error. Certified computation does not make BIC a procedure with
+proved statistical error control.
+
+The median paired time of local BIC + pairs divided by verified BIC + pairs
+is \ComparisonLocalRatio{}. This describes the complete implementations:
+their local starting and domain-expansion policies differ from the checked
+tail construction. It is not an isolated estimate of the cost of Arb or of
+one bound formula. The previous matched backend study remains the appropriate
+comparison when only the verified linear-algebra implementation changes.
+
+Fifty replicates per scenario yield appreciable Monte Carlo uncertainty. For
+example, zero events in 50 trials still gives a Wilson upper bound near 7.1\%.
+The present study fixes $p=12$ and 14 random-effect columns and does not combine
+statistical replication with the largest dimensions from stage four.
+Six separate technical development cases were excluded from this grid.
+The recorded grid and thresholds were frozen before its first run; this is
+not a preregistered study or an external replication of the research team.
+
+The recent \texttt{glmmsel} implementation~\cite{glmmselmanual} accepts one
+cluster-membership vector and jointly selects fixed and random slopes.
+It was inspected but not run: directly substituting one of our crossed
+groupings would change the covariance model. No performance claim about that
+package is inferred from these tables. A dedicated comparison on a common
+supported model class and an application with complete training-fold selection
+remain necessary.
+
+\section{Novelty audit and route to a CSDA manuscript}
+The focused audit is recorded in \texttt{NOVELTY\_AUDIT\_PL.md}, including searches,
+access limitations and the exact scope of each comparison. Profiling and compact
+shape optimization have direct precedents in de Carvalho et al.~\cite{carvalho};
+the projection floor is closely related to Zhou et al.~\cite{zhou}. Safe
+screening for $\ell_0$ regression is already developed by Atamt\"urk and
+G\'omez~\cite{atamturk}. Generic deterministic global optimization with lower
+bounds is established, including $\alpha$BB~\cite{alphabb}. None of these broad
+ideas should be advertised as a first discovery here.
+
+The most relevant modern comparators include Thompson et al.~\cite{thompson}
+and the relaxation-based mixed-model selection of Sholokhov et al.~\cite{sholokhov}.
+Ghosh and Thoresen~\cite{ghosh} consider robust probabilistic sure screening;
+the current audit accessed their abstract, not the full technical PDF. For many
+crossed groups, the GLS backfitting work of Ghosh, Hastie and Owen~\cite{backfit}
+is a relevant computational reference. It does not itself provide the present
+family-level ML decision certificate.
+
+The defensible prospective contribution is the specialized combination of
+candidate-family bounds under covariance re-estimation, shared computation,
+verified stopping, and replayable single/pair path witnesses, now including
+explicitly checked unbounded-tail exclusion under a positive-floor condition. No identical
+complete construction was identified in the inspected texts. This is a bounded
+literature finding, not a proof of historical priority; parts of the broader
+literature and one recent full text remain unchecked. The standalone convexity
+lemma and generic $O(d_B^2)$ bound consistency are not sufficient novelty claims.
+
+Before submission, the main remaining scientific work is:
+\begin{enumerate}
+\item Tighten the conservative tail cover and investigate other sufficient
+conditions for models whose projection floor is zero. Retain unresolved outcomes
+when an implemented certificate's conditions cannot be verified.
+\item Extend beyond the measured two-intercept specialization: develop sparse
+covariance algebra and a pair strategy for many more groups and candidates,
+including simultaneous growth. Separate the benefits of individual changes
+if making component-specific performance claims.
+\item If extending certification to ARSS-JPS, check its actual likelihood-ratio
+decisions and stopping rules. The archived policy is already used as a comparator;
+the current path certificate applies to the separate BIC policy.
+\item Extend the shared-engine ARSS comparison to native contemporary
+penalized/$\ell_0$ implementations on model classes each supports. Different
+statistical objectives require separate computational and predictive comparisons.
+\item Broaden the repeated study to larger dimensions and more replications
+for rare error events, and analyze at least two real datasets
+with selection inside training folds. Justify the selected penalty or inferential
+calibration for the intended crossed-effects regime.
+\end{enumerate}
+The completed fourth stage adds a checked structural specialization and matched
+whole-path time/memory evidence to the full-orthant guarantees. The fifth stage
+adds repeated selection and new-group prediction comparisons with explicit
+uncertainty and a source-checked adaptation of the published ARSS search rule.
+It provides a concrete methodological core; broader validation remains necessary.
+
+\section*{Reproduction and files}
+The bundle contains code, raw results, figures, this note's source and Polish
+summaries. See \texttt{README.md} for commands. Initial exploratory trials are
+excluded from the reported pilots.
+\nolinkurl{run_scaling_experiments.py} runs the matched study.
+\nolinkurl{verify_crossed_backend.py} checks algebra and certificates.
+\nolinkurl{summarize_scaling_results.py} rebuilds the report and figures.
+\nolinkurl{replay_saved_path.py} checks stored paths without optimization.
+The repeated comparison uses \nolinkurl{run_comparison_experiments.py}, with
+checks in \nolinkurl{verify_comparison_methods.py} and summaries in
+\nolinkurl{summarize_comparison_results.py}.
+
+\clearpage
+\begin{thebibliography}{99}\small
+\bibitem{sklearnenet} Scikit-learn developers.
+\emph{ElasticNet and GridSearchCV documentation}. Implementation version 1.8.0
+was used in this study.
+\href{https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.ElasticNet.html}{Official estimator documentation}.
+\bibitem{glmmselmanual} R. Thompson. \emph{glmmsel: Generalised Linear Mixed
+Model Selection}, package manual, version 1.0.3.
+\href{https://cran.r-project.org/web/packages/glmmsel/glmmsel.pdf}{CRAN manual}.
+\bibitem{arss} M. Ga\l{}\k{a}zka and H. Wdowicka.
+\emph{Adaptive Re-Screening and Pair-Screened Joint Rescue for Scalable Stepwise
+Selection in Cross-Classified Linear Mixed Models}. Supplied revised manuscript,
+2026. Publication reported by the author; the supplied PDF contains placeholder
+publication metadata, so no DOI is inferred here.
+\bibitem{thompson} R. Thompson, M. P. Wand and J. J. J. Wang.
+\emph{Scalable Subset Selection in Linear Mixed Models}.
+\href{https://arxiv.org/html/2506.20425v3}{arXiv:2506.20425v3}, version dated May 2026.
+\bibitem{ghosh} A. Ghosh and M. Thoresen.
+\emph{Robust and Scalable Sure Screening of Fixed Effects in Ultrahigh-dimensional
+Linear Mixed Models}. \href{https://arxiv.org/abs/2606.27789}{arXiv:2606.27789}, 2026.
+\bibitem{rugamer} D. R\"ugamer, P. F. M. Baumann and S. Greven.
+Selective inference for additive and linear mixed models.
+\emph{Computational Statistics \& Data Analysis} 167, 107350, 2022.
+\href{https://doi.org/10.1016/j.csda.2021.107350}{doi:10.1016/j.csda.2021.107350}.
+\bibitem{zhou} H. Zhou, L. Hu, J. Zhou and K. Lange.
+\emph{MM Algorithms for Variance Components Models}.
+\href{https://arxiv.org/abs/1509.07426}{arXiv:1509.07426}, 2015.
+Journal version: \emph{Journal of Computational and Graphical Statistics}
+28(2), 350--361, 2019; \href{https://doi.org/10.1080/10618600.2018.1529601}{doi:10.1080/10618600.2018.1529601}.
+\bibitem{boyd} S. Boyd and L. Vandenberghe.
+\emph{Convex Optimization}. Cambridge University Press, 2004.
+\href{https://web.stanford.edu/~boyd/cvxbook/}{Official book page}.
+\bibitem{carvalho} M. de Carvalho, M. Fonseca, M. Oliveira and J. T. Mexia.
+A dimension reduction technique for estimation in linear mixed models.
+\emph{Journal of Statistical Computation and Simulation} 82(2), 219--226, 2012.
+\href{https://doi.org/10.1080/00949655.2011.604032}{doi:10.1080/00949655.2011.604032}.
+\bibitem{atamturk} A. Atamt\"urk and A. G\'omez.
+Safe screening rules for L0-regression from Perspective Relaxations.
+\emph{Proceedings of Machine Learning Research} 119, 421--430, 2020.
+\href{https://proceedings.mlr.press/v119/atamturk20a.html}{Proceedings and full text}.
+\bibitem{alphabb} C. S. Adjiman, S. Dallwig, C. A. Floudas and A. Neumaier.
+A global optimization method, $\alpha$BB, for general twice-differentiable
+constrained NLPs---I. Theoretical advances.
+\emph{Computers \& Chemical Engineering} 22, 1137--1158, 1998.
+\href{https://www.sciencedirect.com/science/article/pii/S0098135498000271}{Publisher page}.
+\bibitem{sholokhov} A. Sholokhov, J. Burke, D. Santomauro, P. Zheng and A. Aravkin.
+\emph{A Relaxation Approach to Feature Selection for Linear Mixed Effects Models}.
+\href{https://arxiv.org/abs/2205.06925}{arXiv:2205.06925}.
+\bibitem{backfit} S. Ghosh, T. Hastie and A. B. Owen.
+\emph{Backfitting for large scale crossed random effects regressions}.
+\href{https://arxiv.org/abs/2007.10612}{arXiv:2007.10612}, 2020.
+\bibitem{arb} F. Johansson.
+\emph{Arb: Efficient Arbitrary-Precision Midpoint-Radius Interval Arithmetic}.
+\href{https://arxiv.org/abs/1611.02831}{arXiv:1611.02831}, 2016.
+Software interfaces: \href{https://python-flint.readthedocs.io/en/latest/arb.html}{python-flint Arb documentation}
+and \href{https://python-flint.readthedocs.io/en/latest/fmpq_mat.html}{exact rational matrices}.
+\bibitem{lme4} D. Bates, M. M\"achler, B. Bolker and S. Walker.
+Fitting linear mixed-effects models using lme4.
+\emph{Journal of Statistical Software} 67(1), 1--48, 2015.
+\href{https://doi.org/10.18637/jss.v067.i01}{doi:10.18637/jss.v067.i01}.
+\end{thebibliography}
+\end{document}

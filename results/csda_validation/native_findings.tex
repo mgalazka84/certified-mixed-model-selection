@@ -1,0 +1,9 @@
+An independent implementation check uses native statsmodels 0.14.6
+mixed-model likelihoods~\cite{statsmodels} on 7 full-data supports. Across 21
+common positive variance-ratio points, the largest log-likelihood discrepancy
+was $2.27\times10^{-11}$. Native local refits, initialized at the common engine's fitted
+point, reported convergence in 7/7 cases. The largest absolute
+profile-deviance difference was $2.77\times10^{-11}$, and the largest fitted-value
+difference was $4.85\times10^{-13}$. Warnings and all point comparisons are archived.
+This checks independent likelihood implementations and local refits; it is
+not a native selection-method speed comparison or an additional global-ML certificate.

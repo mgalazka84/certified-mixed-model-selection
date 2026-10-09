@@ -1,0 +1,128 @@
+---
+title: Guide to glmmsel
+author: Ryan Thompson
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Guide to glmmsel}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 5
+)
+```
+
+## Introduction
+
+`glmmsel` is an R package for generalised linear mixed model (GLMM) selection. Given observations on $m$ clusters $(\mathbf{y}_i,\mathbf{X}_i)_{i=1}^m$, where $\mathbf{y}_i$ and $\mathbf{X}_i$ represent the response vector and predictor matrix for cluster $i$, `glmmsel` can fit a GLMM of the form
+
+$$
+\operatorname{E}\left[\eta(\mathbf{y}_i)\right]=\mathbf{X}_i(\boldsymbol{\beta}+\mathbf{u}_i),
+$$
+where $\boldsymbol{\beta}$ is a sparse vector of fixed effects (i.e., predictor effects that are the same across clusters), $\mathbf{u}_i$ is a sparse vector of random effects (i.e., predictor effects that differ across clusters), and $\eta$ is a link function. `glmmsel` fits this model by solving the optimisation problem
+$$
+\underset{\boldsymbol{\beta},\boldsymbol{\gamma}}{\min}\;l(\mathbf{y},\mathbf{X};\boldsymbol{\beta},\boldsymbol{\gamma})+\lambda\alpha\|\boldsymbol{\beta}\|_0+\lambda(1-\alpha)\|\boldsymbol{\gamma}\|_0\quad\operatorname{s.t.}\;\beta_k=0\Rightarrow\gamma_k=0,
+$$
+where $l$ is a negative log-likelihood, $\|\cdot\|_0$ is the $\ell_0$-norm (i.e., a count of the number of nonzeros), and $\lambda\geq0$ and $\alpha\in(0,1]$ are tuning parameters. Here, $\boldsymbol{\gamma}$ characterises the variance of the random effects $\mathbf{u}_i$, which we assume follow a $N(\mathbf{0},\operatorname{diag}(\boldsymbol{\gamma}))$ distribution. Observe that if $\gamma_k=0$ then $u_{ik}$ is zero.
+
+`glmmsel` operates on the hierarchy principle that a random effect can only be selected if its corresponding fixed effect is also selected; see the constraint $\beta_k=0\Rightarrow\gamma_k=0$. Setting $\alpha=1$ means there is no penalty for selecting a random effect if its fixed effect is also selected. Smaller values of $\alpha$ encourage the random effect to be selected only if it substantially improves the fit. The default value of $\alpha=0.8$ works well in practice.
+
+## Main functions
+
+The two main functions provided by the package are `glmmsel()` and `cv.glmmsel()`, responsible for model fitting and cross-validation, respectively.
+
+The `glmmsel()` function provides a convenient way of fitting the model for a path of $\lambda$ values. To demonstrate this functionality, let's simulate some clustered data.
+
+```{r}
+set.seed(1234)
+n <- 100 # Number of observations
+m <- 4 # Number of clusters
+p <- 5 # Number of predictors
+s.fix <- 2 # Number of nonzero fixed effects
+s.rand <- 1 # Number of nonzero random effects
+x <- matrix(rnorm(n * p), n, p) # Predictor matrix
+beta <- c(rep(1, s.fix), rep(0, p - s.fix)) # True fixed effects
+u <- cbind(matrix(rnorm(m * s.rand), m, s.rand), matrix(0, m, p - s.rand)) # True random effects
+cluster <- sample(1:m, n, replace = TRUE) # Cluster labels
+xb <- rowSums(x * sweep(u, 2, beta, '+')[cluster, ]) # x %*% (beta + u) matrix
+y <- rnorm(n, xb) # Response vector
+```
+
+Of the five candidate predictors, the first two have nonzero fixed effects. Only the first predictor has a nonzero random effect.
+
+```{r}
+library(glmmsel)
+fit <- glmmsel(x, y, cluster)
+```
+
+The values of $\lambda$ are automatically computed from the data, providing a path of solutions from the null model (intercept only) to the full model (all predictors included). The fixed effects and random effects from the path of fits can be extracted using the `fixef()` and `ranef()` functions.
+
+```{r}
+fixef(fit)
+ranef(fit)
+```
+
+Each column in the output of `fixef()` corresponds to a set of fixed effects for a particular value of $\lambda$, with the first row containing intercept terms. In the output of `ranef()`, each slice corresponds to a set of random effects for a particular value of $\lambda$, with each row containing the random effects for a given cluster.
+
+When making predictions, it is often useful to add the fixed and random effects to get the cluster-specific coefficients. The `coef()` function provides this functionality.
+
+```{r}
+coef(fit)
+```
+
+Each row in each of these slices represents the fixed effects plus the random effects for a given cluster, e.g., the second row represents $\hat{\boldsymbol{\beta}}+\hat{\mathbf{u}}_2$.
+
+The `predict()` function is available for making predictions on new data.
+
+```{r}
+x.new <- x[1:3, ]
+cluster.new <- cluster[1:3]
+predict(fit, x.new, cluster.new)
+```
+
+Again, the columns represent predictions for different values of $\lambda$.
+
+In practice, $\lambda$ usually needs to be cross-validated. The `cv.glmmsel()` function provides a convenient way to perform cross-validation.
+
+```{r}
+fit <- cv.glmmsel(x, y, cluster)
+```
+
+`glmmsel()` does not need to be run after using `cv.glmmsel()`, as the latter calls the former and saves the result as `fit$fit`.
+
+The `coef()` and `predict()` functions applied to the output of `cv.glmmsel()` return the result corresponding to the value of $\lambda$ that minimises the cross-validation loss.
+
+```{r}
+coef(fit)
+predict(fit, x.new, cluster.new)
+```
+
+## Non-Gaussian likelihoods
+
+Currently, `glmmsel` supports Gaussian likelihoods (default) and binomial likelihoods. To use a binomial likelihood and perform a logistic linear mixed model fit, set `family = 'binomial'`.
+
+```{r}
+y <- rbinom(n, 1, 1 / (1 + exp(- xb)))
+fit <- cv.glmmsel(x, y, cluster, family = 'binomial')
+coef(fit)
+```
+
+## Algorithms
+
+The primary algorithm driving `glmmsel` is coordinate descent. Sometimes when the predictors are strongly correlated, the models fit by coordinate descent can be improved using local search. This algorithm runs on top of coordinate descent. To use local search, set `local.search = TRUE`.
+
+```{r}
+x <- 0.2 * matrix(rnorm(n * p), n, p) + 0.8 * matrix(rnorm(n), n, p)
+xb <- rowSums(x * sweep(u, 2, beta, '+')[cluster, ])
+y <- rnorm(n, xb)
+fit <- cv.glmmsel(x, y, cluster)
+coef(fit)
+fit <- cv.glmmsel(x, y, cluster, local.search = TRUE)
+coef(fit)
+```
+
+The correct predictors are not selected without local search in this high-correlation example.

@@ -1,0 +1,12 @@
+{
+  "R": "R version 4.5.3 (2026-03-11)",
+  "glmmsel": "1.0.3",
+  "Rcpp": "1.1.2",
+  "RcppArmadillo": "15.6.0.1",
+  "BLAS": "/tmp/csda_r/lib/libopenblasp-r0.3.34.so",
+  "threads": [
+    "1",
+    "1",
+    "1"
+  ]
+}

@@ -1,0 +1,9 @@
+citHeader("To cite glmmsel in publications use:")
+
+bibentry(
+  bibtype     = "Article",
+  title       = "Subset selection in linear mixed models",
+  author      = c(as.person("Ryan Thompson"), as.person("Matt P Wand"), as.person("Joanna J J Wang")),
+  journal     = "arXiv:2506.20425",
+  year        = "2025"
+)

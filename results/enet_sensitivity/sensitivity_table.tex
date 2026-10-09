@@ -1,0 +1,16 @@
+\begin{table}[H]\centering\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lrrrr}
+\toprule
+Design & \shortstack{FDR\\base / wider} & \shortstack{Refit mean MSE\\base / wider} & \shortstack{Native mean MSE\\base / wider} & \shortstack{Changed\\supports} \\
+\midrule
+Signals & 0.367 / 0.367 & 0.220 / 0.220 & 0.269 / 0.269 & 0/50 \\
+Weak signals & 0.345 / 0.345 & 0.199 / 0.199 & 0.232 / 0.232 & 0/50 \\
+Suppressor & 0.654 / 0.654 & 0.236 / 0.236 & 0.276 / 0.276 & 0/50 \\
+Null & 0.180 / 0.180 & 0.143 / 0.143 & 0.141 / 0.141 & 0/50 \\
+Correlated null & 0.380 / 0.380 & 0.133 / 0.133 & 0.133 / 0.133 & 0/50 \\
+Group-aligned & 0.508 / 0.328 & 3.122 / 3.127 & 3.861 / 3.873 & 13/50 \\
+\bottomrule
+\end{tabular}
+\caption{Secondary elastic-net grid sensitivity on the same datasets and identical inner splits. Every primary penalty is retained; the wider grid extends to 10 and includes an intercept-only candidate. Base and wider results use the same test data. The primary five-method results are unchanged. Paired differences and Monte Carlo standard errors are stored separately.}\label{tab:enet_sensitivity}
+\end{table}

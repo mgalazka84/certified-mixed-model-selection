@@ -1,0 +1,11 @@
+\begin{table}[!ht]\centering\small
+\begin{tabular}{rrrrrr}\toprule
+$|\Delta|$ & Online & Replay & Splits & Online (s) & Local (s)\\\midrule
+$1$ & 6/6 & 6/6 & 6 & 0.022 & 0.015\\
+$10^{-2}$ & 6/6 & 6/6 & 12.5 & 0.029 & 0.014\\
+$10^{-4}$ & 6/6 & 6/6 & 24.5 & 0.039 & 0.015\\
+$10^{-6}$ & 0/6 & 6/6 & 354 & 0.170 & 0.014\\
+$10^{-8}$ & 0/6 & 3/6 & 429.5 & 0.192 & 0.014\\
+\bottomrule\end{tabular}
+\caption{Controlled decision gaps: three residual draws and both signs per magnitude. Online and Replay count verified decisions in the original search and in separate subsequent checking of its saved witness. Splits and times are medians; Local denotes the unchanged multistart comparator. Replay time is additional and excluded from Online. Perturbations within a draw are dependent.}\label{tab:difficult}
+\end{table}

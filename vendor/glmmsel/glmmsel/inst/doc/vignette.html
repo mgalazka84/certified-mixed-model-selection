@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<meta name="author" content="Ryan Thompson" />
+
+
+<title>Guide to glmmsel</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { display: inline-block; text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Guide to glmmsel</h1>
+<h4 class="author">Ryan Thompson</h4>
+
+
+
+<div id="introduction" class="section level2">
+<h2>Introduction</h2>
+<p><code>glmmsel</code> is an R package for generalised linear mixed
+model (GLMM) selection. Given observations on <span class="math inline">\(m\)</span> clusters <span class="math inline">\((\mathbf{y}_i,\mathbf{X}_i)_{i=1}^m\)</span>,
+where <span class="math inline">\(\mathbf{y}_i\)</span> and <span class="math inline">\(\mathbf{X}_i\)</span> represent the response
+vector and predictor matrix for cluster <span class="math inline">\(i\)</span>, <code>glmmsel</code> can fit a GLMM of
+the form</p>
+<p><span class="math display">\[
+\operatorname{E}\left[\eta(\mathbf{y}_i)\right]=\mathbf{X}_i(\boldsymbol{\beta}+\mathbf{u}_i),
+\]</span> where <span class="math inline">\(\boldsymbol{\beta}\)</span>
+is a sparse vector of fixed effects (i.e., predictor effects that are
+the same across clusters), <span class="math inline">\(\mathbf{u}_i\)</span> is a sparse vector of random
+effects (i.e., predictor effects that differ across clusters), and <span class="math inline">\(\eta\)</span> is a link function.
+<code>glmmsel</code> fits this model by solving the optimisation problem
+<span class="math display">\[
+\underset{\boldsymbol{\beta},\boldsymbol{\gamma}}{\min}\;l(\mathbf{y},\mathbf{X};\boldsymbol{\beta},\boldsymbol{\gamma})+\lambda\alpha\|\boldsymbol{\beta}\|_0+\lambda(1-\alpha)\|\boldsymbol{\gamma}\|_0\quad\operatorname{s.t.}\;\beta_k=0\Rightarrow\gamma_k=0,
+\]</span> where <span class="math inline">\(l\)</span> is a negative
+log-likelihood, <span class="math inline">\(\|\cdot\|_0\)</span> is the
+<span class="math inline">\(\ell_0\)</span>-norm (i.e., a count of the
+number of nonzeros), and <span class="math inline">\(\lambda\geq0\)</span> and <span class="math inline">\(\alpha\in(0,1]\)</span> are tuning parameters.
+Here, <span class="math inline">\(\boldsymbol{\gamma}\)</span>
+characterises the variance of the random effects <span class="math inline">\(\mathbf{u}_i\)</span>, which we assume follow a
+<span class="math inline">\(N(\mathbf{0},\operatorname{diag}(\boldsymbol{\gamma}))\)</span>
+distribution. Observe that if <span class="math inline">\(\gamma_k=0\)</span> then <span class="math inline">\(u_{ik}\)</span> is zero.</p>
+<p><code>glmmsel</code> operates on the hierarchy principle that a
+random effect can only be selected if its corresponding fixed effect is
+also selected; see the constraint <span class="math inline">\(\beta_k=0\Rightarrow\gamma_k=0\)</span>. Setting
+<span class="math inline">\(\alpha=1\)</span> means there is no penalty
+for selecting a random effect if its fixed effect is also selected.
+Smaller values of <span class="math inline">\(\alpha\)</span> encourage
+the random effect to be selected only if it substantially improves the
+fit. The default value of <span class="math inline">\(\alpha=0.8\)</span> works well in practice.</p>
+</div>
+<div id="main-functions" class="section level2">
+<h2>Main functions</h2>
+<p>The two main functions provided by the package are
+<code>glmmsel()</code> and <code>cv.glmmsel()</code>, responsible for
+model fitting and cross-validation, respectively.</p>
+<p>The <code>glmmsel()</code> function provides a convenient way of
+fitting the model for a path of <span class="math inline">\(\lambda\)</span> values. To demonstrate this
+functionality, let’s simulate some clustered data.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">1234</span>)</span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a>n <span class="ot">&lt;-</span> <span class="dv">100</span> <span class="co"># Number of observations</span></span>
+<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a>m <span class="ot">&lt;-</span> <span class="dv">4</span> <span class="co"># Number of clusters</span></span>
+<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a>p <span class="ot">&lt;-</span> <span class="dv">5</span> <span class="co"># Number of predictors</span></span>
+<span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a>s.fix <span class="ot">&lt;-</span> <span class="dv">2</span> <span class="co"># Number of nonzero fixed effects</span></span>
+<span id="cb1-6"><a href="#cb1-6" tabindex="-1"></a>s.rand <span class="ot">&lt;-</span> <span class="dv">1</span> <span class="co"># Number of nonzero random effects</span></span>
+<span id="cb1-7"><a href="#cb1-7" tabindex="-1"></a>x <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="fu">rnorm</span>(n <span class="sc">*</span> p), n, p) <span class="co"># Predictor matrix</span></span>
+<span id="cb1-8"><a href="#cb1-8" tabindex="-1"></a>beta <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fu">rep</span>(<span class="dv">1</span>, s.fix), <span class="fu">rep</span>(<span class="dv">0</span>, p <span class="sc">-</span> s.fix)) <span class="co"># True fixed effects</span></span>
+<span id="cb1-9"><a href="#cb1-9" tabindex="-1"></a>u <span class="ot">&lt;-</span> <span class="fu">cbind</span>(<span class="fu">matrix</span>(<span class="fu">rnorm</span>(m <span class="sc">*</span> s.rand), m, s.rand), <span class="fu">matrix</span>(<span class="dv">0</span>, m, p <span class="sc">-</span> s.rand)) <span class="co"># True random effects</span></span>
+<span id="cb1-10"><a href="#cb1-10" tabindex="-1"></a>cluster <span class="ot">&lt;-</span> <span class="fu">sample</span>(<span class="dv">1</span><span class="sc">:</span>m, n, <span class="at">replace =</span> <span class="cn">TRUE</span>) <span class="co"># Cluster labels</span></span>
+<span id="cb1-11"><a href="#cb1-11" tabindex="-1"></a>xb <span class="ot">&lt;-</span> <span class="fu">rowSums</span>(x <span class="sc">*</span> <span class="fu">sweep</span>(u, <span class="dv">2</span>, beta, <span class="st">&#39;+&#39;</span>)[cluster, ]) <span class="co"># x %*% (beta + u) matrix</span></span>
+<span id="cb1-12"><a href="#cb1-12" tabindex="-1"></a>y <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n, xb) <span class="co"># Response vector</span></span></code></pre></div>
+<p>Of the five candidate predictors, the first two have nonzero fixed
+effects. Only the first predictor has a nonzero random effect.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="fu">library</span>(glmmsel)</span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>fit <span class="ot">&lt;-</span> <span class="fu">glmmsel</span>(x, y, cluster)</span></code></pre></div>
+<p>The values of <span class="math inline">\(\lambda\)</span> are
+automatically computed from the data, providing a path of solutions from
+the null model (intercept only) to the full model (all predictors
+included). The fixed effects and random effects from the path of fits
+can be extracted using the <code>fixef()</code> and <code>ranef()</code>
+functions.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="fu">fixef</span>(fit)</span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a><span class="co">#&gt;            [,1]       [,2]        [,3]        [,4]        [,5]</span></span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a><span class="co">#&gt; [1,] -0.2922322 -0.1167263 -0.11498018 -0.11484951 -0.10708102</span></span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a><span class="co">#&gt; [2,]  0.0000000  1.1104188  1.11240541  1.12407682  1.12770012</span></span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a><span class="co">#&gt; [3,]  0.0000000  1.1609182  1.16109489  1.17013772  1.17421123</span></span>
+<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a><span class="co">#&gt; [4,]  0.0000000  0.0000000  0.00000000  0.00000000 -0.04771683</span></span>
+<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a><span class="co">#&gt; [5,]  0.0000000  0.0000000  0.00000000 -0.05988147 -0.05850389</span></span>
+<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a><span class="co">#&gt; [6,]  0.0000000  0.0000000  0.04929141  0.04396767  0.04550589</span></span>
+<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a><span class="fu">ranef</span>(fit)</span>
+<span id="cb3-10"><a href="#cb3-10" tabindex="-1"></a><span class="co">#&gt; , , 1</span></span>
+<span id="cb3-11"><a href="#cb3-11" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb3-12"><a href="#cb3-12" tabindex="-1"></a><span class="co">#&gt;      [,1] [,2] [,3] [,4] [,5] [,6]</span></span>
+<span id="cb3-13"><a href="#cb3-13" tabindex="-1"></a><span class="co">#&gt; [1,]    0    0    0    0    0    0</span></span>
+<span id="cb3-14"><a href="#cb3-14" tabindex="-1"></a><span class="co">#&gt; [2,]    0    0    0    0    0    0</span></span>
+<span id="cb3-15"><a href="#cb3-15" tabindex="-1"></a><span class="co">#&gt; [3,]    0    0    0    0    0    0</span></span>
+<span id="cb3-16"><a href="#cb3-16" tabindex="-1"></a><span class="co">#&gt; [4,]    0    0    0    0    0    0</span></span>
+<span id="cb3-17"><a href="#cb3-17" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb3-18"><a href="#cb3-18" tabindex="-1"></a><span class="co">#&gt; , , 2</span></span>
+<span id="cb3-19"><a href="#cb3-19" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb3-20"><a href="#cb3-20" tabindex="-1"></a><span class="co">#&gt;      [,1]        [,2] [,3] [,4] [,5] [,6]</span></span>
+<span id="cb3-21"><a href="#cb3-21" tabindex="-1"></a><span class="co">#&gt; [1,]    0 -1.14669569    0    0    0    0</span></span>
+<span id="cb3-22"><a href="#cb3-22" tabindex="-1"></a><span class="co">#&gt; [2,]    0  0.03435146    0    0    0    0</span></span>
+<span id="cb3-23"><a href="#cb3-23" tabindex="-1"></a><span class="co">#&gt; [3,]    0  0.75530136    0    0    0    0</span></span>
+<span id="cb3-24"><a href="#cb3-24" tabindex="-1"></a><span class="co">#&gt; [4,]    0  0.35703619    0    0    0    0</span></span>
+<span id="cb3-25"><a href="#cb3-25" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb3-26"><a href="#cb3-26" tabindex="-1"></a><span class="co">#&gt; , , 3</span></span>
+<span id="cb3-27"><a href="#cb3-27" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb3-28"><a href="#cb3-28" tabindex="-1"></a><span class="co">#&gt;      [,1]        [,2] [,3] [,4] [,5] [,6]</span></span>
+<span id="cb3-29"><a href="#cb3-29" tabindex="-1"></a><span class="co">#&gt; [1,]    0 -1.15635158    0    0    0    0</span></span>
+<span id="cb3-30"><a href="#cb3-30" tabindex="-1"></a><span class="co">#&gt; [2,]    0  0.03829802    0    0    0    0</span></span>
+<span id="cb3-31"><a href="#cb3-31" tabindex="-1"></a><span class="co">#&gt; [3,]    0  0.75971247    0    0    0    0</span></span>
+<span id="cb3-32"><a href="#cb3-32" tabindex="-1"></a><span class="co">#&gt; [4,]    0  0.35850014    0    0    0    0</span></span>
+<span id="cb3-33"><a href="#cb3-33" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb3-34"><a href="#cb3-34" tabindex="-1"></a><span class="co">#&gt; , , 4</span></span>
+<span id="cb3-35"><a href="#cb3-35" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb3-36"><a href="#cb3-36" tabindex="-1"></a><span class="co">#&gt;      [,1]       [,2] [,3] [,4] [,5] [,6]</span></span>
+<span id="cb3-37"><a href="#cb3-37" tabindex="-1"></a><span class="co">#&gt; [1,]    0 -1.1514971    0    0    0    0</span></span>
+<span id="cb3-38"><a href="#cb3-38" tabindex="-1"></a><span class="co">#&gt; [2,]    0  0.0327921    0    0    0    0</span></span>
+<span id="cb3-39"><a href="#cb3-39" tabindex="-1"></a><span class="co">#&gt; [3,]    0  0.7502685    0    0    0    0</span></span>
+<span id="cb3-40"><a href="#cb3-40" tabindex="-1"></a><span class="co">#&gt; [4,]    0  0.3687197    0    0    0    0</span></span>
+<span id="cb3-41"><a href="#cb3-41" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb3-42"><a href="#cb3-42" tabindex="-1"></a><span class="co">#&gt; , , 5</span></span>
+<span id="cb3-43"><a href="#cb3-43" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb3-44"><a href="#cb3-44" tabindex="-1"></a><span class="co">#&gt;      [,1]        [,2] [,3] [,4] [,5] [,6]</span></span>
+<span id="cb3-45"><a href="#cb3-45" tabindex="-1"></a><span class="co">#&gt; [1,]    0 -1.14421868    0    0    0    0</span></span>
+<span id="cb3-46"><a href="#cb3-46" tabindex="-1"></a><span class="co">#&gt; [2,]    0  0.03769651    0    0    0    0</span></span>
+<span id="cb3-47"><a href="#cb3-47" tabindex="-1"></a><span class="co">#&gt; [3,]    0  0.74853993    0    0    0    0</span></span>
+<span id="cb3-48"><a href="#cb3-48" tabindex="-1"></a><span class="co">#&gt; [4,]    0  0.35795599    0    0    0    0</span></span></code></pre></div>
+<p>Each column in the output of <code>fixef()</code> corresponds to a
+set of fixed effects for a particular value of <span class="math inline">\(\lambda\)</span>, with the first row containing
+intercept terms. In the output of <code>ranef()</code>, each slice
+corresponds to a set of random effects for a particular value of <span class="math inline">\(\lambda\)</span>, with each row containing the
+random effects for a given cluster.</p>
+<p>When making predictions, it is often useful to add the fixed and
+random effects to get the cluster-specific coefficients. The
+<code>coef()</code> function provides this functionality.</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="fu">coef</span>(fit)</span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a><span class="co">#&gt; , , 1</span></span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a><span class="co">#&gt;            [,1] [,2] [,3] [,4] [,5] [,6]</span></span>
+<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a><span class="co">#&gt; [1,] -0.2922322    0    0    0    0    0</span></span>
+<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a><span class="co">#&gt; [2,] -0.2922322    0    0    0    0    0</span></span>
+<span id="cb4-7"><a href="#cb4-7" tabindex="-1"></a><span class="co">#&gt; [3,] -0.2922322    0    0    0    0    0</span></span>
+<span id="cb4-8"><a href="#cb4-8" tabindex="-1"></a><span class="co">#&gt; [4,] -0.2922322    0    0    0    0    0</span></span>
+<span id="cb4-9"><a href="#cb4-9" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb4-10"><a href="#cb4-10" tabindex="-1"></a><span class="co">#&gt; , , 2</span></span>
+<span id="cb4-11"><a href="#cb4-11" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb4-12"><a href="#cb4-12" tabindex="-1"></a><span class="co">#&gt;            [,1]        [,2]     [,3] [,4] [,5] [,6]</span></span>
+<span id="cb4-13"><a href="#cb4-13" tabindex="-1"></a><span class="co">#&gt; [1,] -0.1167263 -0.03627693 1.160918    0    0    0</span></span>
+<span id="cb4-14"><a href="#cb4-14" tabindex="-1"></a><span class="co">#&gt; [2,] -0.1167263  1.14477022 1.160918    0    0    0</span></span>
+<span id="cb4-15"><a href="#cb4-15" tabindex="-1"></a><span class="co">#&gt; [3,] -0.1167263  1.86572012 1.160918    0    0    0</span></span>
+<span id="cb4-16"><a href="#cb4-16" tabindex="-1"></a><span class="co">#&gt; [4,] -0.1167263  1.46745495 1.160918    0    0    0</span></span>
+<span id="cb4-17"><a href="#cb4-17" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb4-18"><a href="#cb4-18" tabindex="-1"></a><span class="co">#&gt; , , 3</span></span>
+<span id="cb4-19"><a href="#cb4-19" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb4-20"><a href="#cb4-20" tabindex="-1"></a><span class="co">#&gt;            [,1]        [,2]     [,3] [,4] [,5]       [,6]</span></span>
+<span id="cb4-21"><a href="#cb4-21" tabindex="-1"></a><span class="co">#&gt; [1,] -0.1149802 -0.04394616 1.161095    0    0 0.04929141</span></span>
+<span id="cb4-22"><a href="#cb4-22" tabindex="-1"></a><span class="co">#&gt; [2,] -0.1149802  1.15070343 1.161095    0    0 0.04929141</span></span>
+<span id="cb4-23"><a href="#cb4-23" tabindex="-1"></a><span class="co">#&gt; [3,] -0.1149802  1.87211788 1.161095    0    0 0.04929141</span></span>
+<span id="cb4-24"><a href="#cb4-24" tabindex="-1"></a><span class="co">#&gt; [4,] -0.1149802  1.47090555 1.161095    0    0 0.04929141</span></span>
+<span id="cb4-25"><a href="#cb4-25" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb4-26"><a href="#cb4-26" tabindex="-1"></a><span class="co">#&gt; , , 4</span></span>
+<span id="cb4-27"><a href="#cb4-27" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb4-28"><a href="#cb4-28" tabindex="-1"></a><span class="co">#&gt;            [,1]        [,2]     [,3] [,4]        [,5]       [,6]</span></span>
+<span id="cb4-29"><a href="#cb4-29" tabindex="-1"></a><span class="co">#&gt; [1,] -0.1148495 -0.02742033 1.170138    0 -0.05988147 0.04396767</span></span>
+<span id="cb4-30"><a href="#cb4-30" tabindex="-1"></a><span class="co">#&gt; [2,] -0.1148495  1.15686892 1.170138    0 -0.05988147 0.04396767</span></span>
+<span id="cb4-31"><a href="#cb4-31" tabindex="-1"></a><span class="co">#&gt; [3,] -0.1148495  1.87434529 1.170138    0 -0.05988147 0.04396767</span></span>
+<span id="cb4-32"><a href="#cb4-32" tabindex="-1"></a><span class="co">#&gt; [4,] -0.1148495  1.49279648 1.170138    0 -0.05988147 0.04396767</span></span>
+<span id="cb4-33"><a href="#cb4-33" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb4-34"><a href="#cb4-34" tabindex="-1"></a><span class="co">#&gt; , , 5</span></span>
+<span id="cb4-35"><a href="#cb4-35" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb4-36"><a href="#cb4-36" tabindex="-1"></a><span class="co">#&gt;           [,1]        [,2]     [,3]        [,4]        [,5]       [,6]</span></span>
+<span id="cb4-37"><a href="#cb4-37" tabindex="-1"></a><span class="co">#&gt; [1,] -0.107081 -0.01651856 1.174211 -0.04771683 -0.05850389 0.04550589</span></span>
+<span id="cb4-38"><a href="#cb4-38" tabindex="-1"></a><span class="co">#&gt; [2,] -0.107081  1.16539663 1.174211 -0.04771683 -0.05850389 0.04550589</span></span>
+<span id="cb4-39"><a href="#cb4-39" tabindex="-1"></a><span class="co">#&gt; [3,] -0.107081  1.87624005 1.174211 -0.04771683 -0.05850389 0.04550589</span></span>
+<span id="cb4-40"><a href="#cb4-40" tabindex="-1"></a><span class="co">#&gt; [4,] -0.107081  1.48565611 1.174211 -0.04771683 -0.05850389 0.04550589</span></span></code></pre></div>
+<p>Each row in each of these slices represents the fixed effects plus
+the random effects for a given cluster, e.g., the second row represents
+<span class="math inline">\(\hat{\boldsymbol{\beta}}+\hat{\mathbf{u}}_2\)</span>.</p>
+<p>The <code>predict()</code> function is available for making
+predictions on new data.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a>x.new <span class="ot">&lt;-</span> x[<span class="dv">1</span><span class="sc">:</span><span class="dv">3</span>, ]</span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a>cluster.new <span class="ot">&lt;-</span> cluster[<span class="dv">1</span><span class="sc">:</span><span class="dv">3</span>]</span>
+<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a><span class="fu">predict</span>(fit, x.new, cluster.new)</span>
+<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a><span class="co">#&gt;            [,1]        [,2]       [,3]       [,4]        [,5]</span></span>
+<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a><span class="co">#&gt; [1,] -0.2922322  0.40829027  0.3588954  0.3840867  0.35454510</span></span>
+<span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a><span class="co">#&gt; [2,] -0.2922322 -0.35024290 -0.3451526 -0.2907129 -0.31701760</span></span>
+<span id="cb5-7"><a href="#cb5-7" tabindex="-1"></a><span class="co">#&gt; [3,] -0.2922322 -0.07945345 -0.1067836 -0.0751470 -0.06503485</span></span></code></pre></div>
+<p>Again, the columns represent predictions for different values of
+<span class="math inline">\(\lambda\)</span>.</p>
+<p>In practice, <span class="math inline">\(\lambda\)</span> usually
+needs to be cross-validated. The <code>cv.glmmsel()</code> function
+provides a convenient way to perform cross-validation.</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a>fit <span class="ot">&lt;-</span> <span class="fu">cv.glmmsel</span>(x, y, cluster)</span></code></pre></div>
+<p><code>glmmsel()</code> does not need to be run after using
+<code>cv.glmmsel()</code>, as the latter calls the former and saves the
+result as <code>fit$fit</code>.</p>
+<p>The <code>coef()</code> and <code>predict()</code> functions applied
+to the output of <code>cv.glmmsel()</code> return the result
+corresponding to the value of <span class="math inline">\(\lambda\)</span> that minimises the
+cross-validation loss.</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="fu">coef</span>(fit)</span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a><span class="co">#&gt;            [,1]        [,2]     [,3] [,4] [,5] [,6]</span></span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a><span class="co">#&gt; [1,] -0.1167263 -0.03627693 1.160918    0    0    0</span></span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a><span class="co">#&gt; [2,] -0.1167263  1.14477022 1.160918    0    0    0</span></span>
+<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a><span class="co">#&gt; [3,] -0.1167263  1.86572012 1.160918    0    0    0</span></span>
+<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a><span class="co">#&gt; [4,] -0.1167263  1.46745495 1.160918    0    0    0</span></span>
+<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a><span class="fu">predict</span>(fit, x.new, cluster.new)</span>
+<span id="cb7-8"><a href="#cb7-8" tabindex="-1"></a><span class="co">#&gt; [1]  0.40829027 -0.35024290 -0.07945345</span></span></code></pre></div>
+</div>
+<div id="non-gaussian-likelihoods" class="section level2">
+<h2>Non-Gaussian likelihoods</h2>
+<p>Currently, <code>glmmsel</code> supports Gaussian likelihoods
+(default) and binomial likelihoods. To use a binomial likelihood and
+perform a logistic linear mixed model fit, set
+<code>family = &#39;binomial&#39;</code>.</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a>y <span class="ot">&lt;-</span> <span class="fu">rbinom</span>(n, <span class="dv">1</span>, <span class="dv">1</span> <span class="sc">/</span> (<span class="dv">1</span> <span class="sc">+</span> <span class="fu">exp</span>(<span class="sc">-</span> xb)))</span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a>fit <span class="ot">&lt;-</span> <span class="fu">cv.glmmsel</span>(x, y, cluster, <span class="at">family =</span> <span class="st">&#39;binomial&#39;</span>)</span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a><span class="fu">coef</span>(fit)</span>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a><span class="co">#&gt;           [,1]       [,2]      [,3] [,4] [,5] [,6]</span></span>
+<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a><span class="co">#&gt; [1,] 0.1712199 -1.2805969 0.9336272    0    0    0</span></span>
+<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a><span class="co">#&gt; [2,] 0.1712199  0.7217031 0.9336272    0    0    0</span></span>
+<span id="cb8-7"><a href="#cb8-7" tabindex="-1"></a><span class="co">#&gt; [3,] 0.1712199  1.6736120 0.9336272    0    0    0</span></span>
+<span id="cb8-8"><a href="#cb8-8" tabindex="-1"></a><span class="co">#&gt; [4,] 0.1712199  1.6302119 0.9336272    0    0    0</span></span></code></pre></div>
+</div>
+<div id="algorithms" class="section level2">
+<h2>Algorithms</h2>
+<p>The primary algorithm driving <code>glmmsel</code> is coordinate
+descent. Sometimes when the predictors are strongly correlated, the
+models fit by coordinate descent can be improved using local search.
+This algorithm runs on top of coordinate descent. To use local search,
+set <code>local.search = TRUE</code>.</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a>x <span class="ot">&lt;-</span> <span class="fl">0.2</span> <span class="sc">*</span> <span class="fu">matrix</span>(<span class="fu">rnorm</span>(n <span class="sc">*</span> p), n, p) <span class="sc">+</span> <span class="fl">0.8</span> <span class="sc">*</span> <span class="fu">matrix</span>(<span class="fu">rnorm</span>(n), n, p)</span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a>xb <span class="ot">&lt;-</span> <span class="fu">rowSums</span>(x <span class="sc">*</span> <span class="fu">sweep</span>(u, <span class="dv">2</span>, beta, <span class="st">&#39;+&#39;</span>)[cluster, ])</span>
+<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a>y <span class="ot">&lt;-</span> <span class="fu">rnorm</span>(n, xb)</span>
+<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a>fit <span class="ot">&lt;-</span> <span class="fu">cv.glmmsel</span>(x, y, cluster)</span>
+<span id="cb9-5"><a href="#cb9-5" tabindex="-1"></a><span class="fu">coef</span>(fit)</span>
+<span id="cb9-6"><a href="#cb9-6" tabindex="-1"></a><span class="co">#&gt;           [,1]      [,2]     [,3] [,4]      [,5] [,6]</span></span>
+<span id="cb9-7"><a href="#cb9-7" tabindex="-1"></a><span class="co">#&gt; [1,] 0.0772794 0.2402767 1.476905    0 -0.569285    0</span></span>
+<span id="cb9-8"><a href="#cb9-8" tabindex="-1"></a><span class="co">#&gt; [2,] 0.0772794 0.8580355 1.476905    0 -0.569285    0</span></span>
+<span id="cb9-9"><a href="#cb9-9" tabindex="-1"></a><span class="co">#&gt; [3,] 0.0772794 1.4901887 1.476905    0 -0.569285    0</span></span>
+<span id="cb9-10"><a href="#cb9-10" tabindex="-1"></a><span class="co">#&gt; [4,] 0.0772794 1.8003791 1.476905    0 -0.569285    0</span></span>
+<span id="cb9-11"><a href="#cb9-11" tabindex="-1"></a>fit <span class="ot">&lt;-</span> <span class="fu">cv.glmmsel</span>(x, y, cluster, <span class="at">local.search =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb9-12"><a href="#cb9-12" tabindex="-1"></a><span class="fu">coef</span>(fit)</span>
+<span id="cb9-13"><a href="#cb9-13" tabindex="-1"></a><span class="co">#&gt;            [,1]        [,2]     [,3] [,4] [,5] [,6]</span></span>
+<span id="cb9-14"><a href="#cb9-14" tabindex="-1"></a><span class="co">#&gt; [1,] 0.04734797 -0.09505438 1.264529    0    0    0</span></span>
+<span id="cb9-15"><a href="#cb9-15" tabindex="-1"></a><span class="co">#&gt; [2,] 0.04734797  0.47932137 1.264529    0    0    0</span></span>
+<span id="cb9-16"><a href="#cb9-16" tabindex="-1"></a><span class="co">#&gt; [3,] 0.04734797  1.11757935 1.264529    0    0    0</span></span>
+<span id="cb9-17"><a href="#cb9-17" tabindex="-1"></a><span class="co">#&gt; [4,] 0.04734797  1.48196842 1.264529    0    0    0</span></span></code></pre></div>
+<p>The correct predictors are not selected without local search in this
+high-correlation example.</p>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

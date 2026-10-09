@@ -1,0 +1,9 @@
+Native fitting and tuning completed in 46/46 analyses. All 46 reference certified paths completed, with 223 checked decisions; 46 replayed and 46 agreed with their local-pair paths. The six real-data analyses reuse one dataset and are not independent simulation replicates.
+
+On cake, native glmmsel has pooled MSE 62.974, compared with 60.822 for verified BIC and 63.055 after its reference ML refit. The mean selected sizes are 3.4 and 1.0, respectively. The descriptive full-data native fit selects linear temperature, quadratic temperature, with random slopes for quadratic temperature; the reference BIC fit selects only linear temperature. These descriptive prediction results do not isolate the effect of numerical certification.
+
+In suppression, verified BIC recovers both suppressed predictors in 20/20 cases, native glmmsel in 19/20, and singles-only BIC in 0/20. Mean false discovery proportions are 0.0375 and 0.7342 for verified BIC and glmmsel. The paired native-minus-verified mean-MSE difference is 0.0525 (Monte Carlo SE 0.0184; approximate 95\% $t$ interval [0.0139, 0.0910]). Only twenty datasets inform each estimate.
+
+The selected native penalty is the last available path value in 11/46 analyses. Warnings occur in 0 analyses and iteration-limit eligibility excludes penalties in 0 analyses; the archive retains their identities and full diagnostics. The adaptive-path results do not establish robustness to every penalty grid or hierarchy parameter.
+
+An independent grouped-covariance calculation at every selected native parameter vector agrees with the package profile objective to at most $2.74\times10^{-12}$. The native new-group predictions also agree with direct fixed-effect evaluation. These checks validate the implementation interface and likelihood evaluation, not global optimization of its penalized problem.

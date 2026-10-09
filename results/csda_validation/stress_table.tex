@@ -1,0 +1,33 @@
+\begin{table}[H]\centering\small
+\begin{tabular}{rllrrrrr}\toprule
+$p$ & Design & Method & Done & TPR & FDR & Mean MSE & Seconds\\\midrule
+24 & Signals & Verified BIC + pairs & 8/8 & 1.000 & 0.050 & 0.222 & 4.23 \\
+24 & Signals & Local BIC + pairs & 8/8 & 1.000 & 0.050 & 0.222 & 5.13 \\
+24 & Signals & BIC singles & 8/8 & 1.000 & 0.050 & 0.222 & 1.59 \\
+24 & Signals & ARSS-JPS policy & 8/8 & 1.000 & 0.050 & 0.222 & 0.57 \\
+24 & Signals & EN + ML & 8/8 & 1.000 & 0.484 & 0.237 & 0.73 \\
+\midrule
+24 & Suppressor & Verified BIC + pairs & 8/8 & 1.000 & 0.094 & 0.055 & 5.13 \\
+24 & Suppressor & Local BIC + pairs & 8/8 & 1.000 & 0.094 & 0.055 & 9.92 \\
+24 & Suppressor & BIC singles & 8/8 & 0.333 & 0.125 & 0.410 & 0.88 \\
+24 & Suppressor & ARSS-JPS policy & 8/8 & 1.000 & 0.062 & 0.054 & 0.96 \\
+24 & Suppressor & EN + ML & 8/8 & 1.000 & 0.871 & 0.092 & 1.25 \\
+\midrule
+40 & Signals & Verified BIC + pairs & 8/8 & 1.000 & 0.062 & 0.014 & 16.84 \\
+40 & Signals & Local BIC + pairs & 8/8 & 1.000 & 0.062 & 0.014 & 37.79 \\
+40 & Signals & BIC singles & 8/8 & 1.000 & 0.062 & 0.014 & 7.21 \\
+40 & Signals & ARSS-JPS policy & 8/8 & 1.000 & 0.062 & 0.014 & 2.37 \\
+40 & Signals & EN + ML & 8/8 & 1.000 & 0.380 & 0.020 & 0.84 \\
+\midrule
+40 & Suppressor & Verified BIC + pairs & 8/8 & 1.000 & 0.188 & 0.025 & 23.70 \\
+40 & Suppressor & Local BIC + pairs & 8/8 & 1.000 & 0.188 & 0.025 & 75.40 \\
+40 & Suppressor & BIC singles & 8/8 & 0.417 & 0.271 & 0.347 & 5.41 \\
+40 & Suppressor & ARSS-JPS policy & 8/8 & 1.000 & 0.188 & 0.025 & 4.25 \\
+40 & Suppressor & EN + ML & 8/8 & 1.000 & 0.919 & 0.055 & 2.15 \\
+\bottomrule\end{tabular}
+\caption{Simultaneous-dimension extension. At $p=24$, $n=600$ and group counts
+are 12 and 18; at $p=40$, $n=1200$ and group counts are 40 and 60. Each design has
+eight independent replicates. Seconds are median complete-pipeline times.
+Mean MSE targets the generating population mean in new groups; full Monte
+Carlo standard errors and failures are retained in the raw summary.}
+\end{table}

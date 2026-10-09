@@ -1,0 +1,34 @@
+The original search verifies 18/30 controlled decisions,
+all with the analytic winner. All six cases at each of $|\Delta|=1$, $10^{-2}$
+and $10^{-4}$ complete; none at $10^{-6}$ or $10^{-8}$ completes under
+the diagnostic budget. Across the 30 nonzero-gap inputs, the seven single-start
+decisions and the multistart decision all agree with the analytic winner.
+The experiment therefore does not demonstrate an incorrect local selection
+on these nonzero-gap inputs.
+
+Separate replay verifies 27/30 saved witnesses, including nine of the
+twelve unresolved nonzero-gap cases. The other three propose the wrong support
+at $\Delta=-10^{-8}$; both the online procedure and subsequent checker decline
+to certify them. These are unaccepted proposals, not erroneous certified outputs.
+At the exact tie, single-start choices vary and the multistart fit proposes an
+addition; online checking remains unresolved and replay rejects strict separation.
+The stipulated reference policy retains the current model on a stopping tie.
+
+On all 24 crossed datasets the online decision completes, passes replay and
+agrees with multistart. Four of the 216 single-start family decisions disagree
+with the certificate, on two ordinary-design datasets. Each affected family
+contains a nonstationary fit despite the optimizer's success flag. Independent
+dense covariance calculations reproduce the recorded objectives to
+$1.43\times10^{-13}$ and the projected-gradient norms to $5.12\times10^{-13}$.
+Across all 864 single-start model fits, 23 have a diagnostic warning; restarting
+these fits with the dense objective lowers 21 objective values by more than
+$10^{-6}$. Thus the changed choices demonstrate premature numerical stopping,
+not distinct stationary local minima. A gradient diagnostic flags all four
+affected decisions, and multistart resolves them without interval arithmetic.
+Median family times are 0.039 seconds for online certification,
+0.050 for multistart, and
+0.017 per single start.
+The largest same-support objective spread across starts is
+$23$.
+These small diagnostic families establish observed agreement, not global
+reliability of local optimization across other designs.

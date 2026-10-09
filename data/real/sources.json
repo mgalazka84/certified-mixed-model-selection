@@ -1,0 +1,20 @@
+{
+  "retrieved_utc": "2026-09-14",
+  "data_sources": {
+    "carrots": "https://github.com/runehaubo/lmerTestR/blob/master/data/carrots.rda",
+    "cake": "https://github.com/lme4/lme4/blob/master/data/cake.rda"
+  },
+  "documentation": {
+    "carrots": "https://cran.r-project.org/web/packages/lmerTest/lmerTest.pdf",
+    "cake": "https://github.com/lme4/lme4/blob/master/man/cake.Rd"
+  },
+  "notes": "Public teaching datasets, unchanged R data binaries; CSV export by pyreadr 0.5.6. Upstream branches are mutable; the exact retrieved bytes and SHA256 hashes are archived. Package source license: GPL (>=2). Attribution and dataset origin remain in the archived documentation.",
+  "sha256": {
+    "cake.Rd": "3cd62de8f14eab2ca3e54c56dd239295fddfcef239c47317851552dd15264681",
+    "lmerTest_data.R": "f3c49f9b4a15baf46f39ba2b3cd5c49775f56a2f71084f8a5e296e8d1d196e50",
+    "carrots.csv": "a021c624fcccb8bae9bc83d2982a58cdbc0dcbffa280c88581868096d25c2e65",
+    "cake.rda": "e21fbee9c8fc1970a9ef2dfe6d701b2aa1370a823914f7630602ae6698d32646",
+    "carrots.rda": "a7ddf99f47d31d40198b71bf908effa8a95549decd50191570b15546bcff3a04",
+    "cake.csv": "76061e4b9f01fd1355e7cbb89e042d504acaf8a9042c4539370c0bfc5f0e3f13"
+  }
+}

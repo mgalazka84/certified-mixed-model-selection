@@ -1,0 +1,15 @@
+\begin{table}[H]\centering\small
+\begin{tabular}{lrr}
+\toprule
+Design & Native EN mean MSE & EN + ML mean MSE \\
+\midrule
+Signals & 0.269 (0.033) & 0.220 (0.029) \\
+Weak signals & 0.232 (0.033) & 0.199 (0.033) \\
+Suppressor & 0.276 (0.044) & 0.236 (0.044) \\
+Null & 0.141 (0.028) & 0.143 (0.028) \\
+Correlated null & 0.133 (0.020) & 0.133 (0.019) \\
+Group-aligned & 3.861 (0.728) & 3.122 (0.678) \\
+\bottomrule
+\end{tabular}
+\caption{Native shrunken elastic-net predictions and the same selected support after ML refitting. Values are population-mean MSE; parentheses give one Monte Carlo standard error. The support and its tuning are the same in both columns.}\label{tab:comparison_native}
+\end{table}

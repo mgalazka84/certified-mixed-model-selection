@@ -1,0 +1,26 @@
+\begin{table}[H]\centering\small
+\begin{tabular}{llrrrrr}\toprule
+Data & Method & Folds & Rows & MSE & MAE & Seconds\\\midrule
+Carrots & Verified BIC + pairs & 9/9 & 1233 & 1.375 & 0.929 & 2.816 \\
+Carrots & Local BIC + pairs & 9/9 & 1233 & 1.375 & 0.929 & 1.606 \\
+Carrots & BIC singles & 9/9 & 1233 & 1.375 & 0.929 & 0.759 \\
+Carrots & ARSS-JPS policy & 9/9 & 1233 & 1.375 & 0.929 & 0.563 \\
+Carrots & EN + ML & 9/9 & 1233 & 1.383 & 0.930 & 0.736 \\
+Carrots & Native elastic net & 9/9 & 1233 & 1.364 & 0.926 & -- \\
+Carrots & Intercept-only ML & 9/9 & 1233 & 1.390 & 0.945 & 0.036 \\
+Carrots & Full-dictionary ML & 9/9 & 1233 & 1.383 & 0.932 & 0.035 \\
+\midrule
+Cake & Verified BIC + pairs & 5/5 & 270 & 60.822 & 5.987 & 0.208 \\
+Cake & Local BIC + pairs & 5/5 & 270 & 60.822 & 5.987 & 0.257 \\
+Cake & BIC singles & 5/5 & 270 & 60.822 & 5.987 & 0.153 \\
+Cake & ARSS-JPS policy & 5/5 & 270 & 60.822 & 5.987 & 0.128 \\
+Cake & EN + ML & 5/5 & 270 & 63.434 & 6.064 & 0.248 \\
+Cake & Native elastic net & 5/5 & 270 & 61.626 & 6.029 & -- \\
+Cake & Intercept-only ML & 5/5 & 270 & 67.783 & 6.471 & 0.011 \\
+Cake & Full-dictionary ML & 5/5 & 270 & 64.235 & 6.112 & 0.012 \\
+\bottomrule\end{tabular}
+\caption{Pooled out-of-fold prediction for new groups. Seconds are median
+complete-pipeline times. Native EN uses the same tuned support as EN + ML;
+its separate timing is not inferred from that pipeline. All rows are evaluated
+once for each completed method. Differences are descriptive.}\label{tab:real}
+\end{table}

@@ -1,0 +1,55 @@
+\begin{table}[H]\centering\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{llrrrrr}
+\toprule
+Design & Method & Done & TPR & FDR & Exact & Mean MSE \\
+\midrule
+Signals & Verified & 50/50 & 1.00 & 0.04 & 0.86 & 0.203 \\
+ & Local pairs & 50/50 & 1.00 & 0.04 & 0.86 & 0.203 \\
+ & Singles & 50/50 & 1.00 & 0.04 & 0.86 & 0.203 \\
+ & ARSS-JPS & 50/50 & 0.99 & 0.01 & 0.92 & 0.202 \\
+ & EN + ML & 50/50 & 0.99 & 0.37 & 0.22 & 0.220 \\
+\midrule
+Weak signals & Verified & 50/50 & 0.85 & 0.04 & 0.54 & 0.178 \\
+ & Local pairs & 50/50 & 0.85 & 0.04 & 0.54 & 0.178 \\
+ & Singles & 50/50 & 0.85 & 0.04 & 0.54 & 0.178 \\
+ & ARSS-JPS & 50/50 & 0.82 & 0.03 & 0.48 & 0.179 \\
+ & EN + ML & 50/50 & 0.83 & 0.35 & 0.12 & 0.199 \\
+\midrule
+Suppressor & Verified & 50/50 & 1.00 & 0.09 & 0.70 & 0.157 \\
+ & Local pairs & 50/50 & 1.00 & 0.09 & 0.70 & 0.157 \\
+ & Singles & 50/50 & 0.33 & 0.13 & 0.00 & 0.516 \\
+ & ARSS-JPS & 50/50 & 1.00 & 0.05 & 0.84 & 0.153 \\
+ & EN + ML & 50/50 & 0.90 & 0.65 & 0.00 & 0.236 \\
+\bottomrule
+\end{tabular}
+\caption{Selection and prediction on signal designs. Entries use completed runs; TPR is undefined under the null. FDR is mean false-discovery proportion, Exact is full-support recovery, and Mean MSE targets the fixed population mean in entirely new groups. All selected supports receive the same type of ML coefficient refit. Full Monte Carlo standard errors and event intervals are retained in the raw summary.}\label{tab:comparison_signal}
+\end{table}
+
+\begin{table}[H]\centering\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{llrrrrr}
+\toprule
+Design & Method & Done & TPR & FDR & Exact & Mean MSE \\
+\midrule
+Null & Verified & 50/50 & -- & 0.14 & 0.86 & 0.142 \\
+ & Local pairs & 50/50 & -- & 0.14 & 0.86 & 0.142 \\
+ & Singles & 50/50 & -- & 0.14 & 0.86 & 0.142 \\
+ & ARSS-JPS & 50/50 & -- & 0.10 & 0.90 & 0.141 \\
+ & EN + ML & 50/50 & -- & 0.18 & 0.82 & 0.143 \\
+\midrule
+Correlated null & Verified & 50/50 & -- & 0.06 & 0.94 & 0.127 \\
+ & Local pairs & 50/50 & -- & 0.06 & 0.94 & 0.127 \\
+ & Singles & 50/50 & -- & 0.04 & 0.96 & 0.126 \\
+ & ARSS-JPS & 50/50 & -- & 0.04 & 0.96 & 0.126 \\
+ & EN + ML & 50/50 & -- & 0.38 & 0.62 & 0.133 \\
+\midrule
+Group-aligned & Verified & 50/50 & 1.00 & 0.09 & 0.74 & 2.663 \\
+ & Local pairs & 50/50 & 1.00 & 0.09 & 0.74 & 2.663 \\
+ & Singles & 50/50 & 1.00 & 0.09 & 0.74 & 2.663 \\
+ & ARSS-JPS & 50/50 & 1.00 & 0.05 & 0.84 & 2.661 \\
+ & EN + ML & 50/50 & 0.50 & 0.51 & 0.02 & 3.122 \\
+\bottomrule
+\end{tabular}
+\caption{Null and group-aligned designs. Entries use completed runs; TPR is undefined under the null. FDR is mean false-discovery proportion, Exact is full-support recovery, and Mean MSE targets the fixed population mean in entirely new groups. All selected supports receive the same type of ML coefficient refit. Full Monte Carlo standard errors and event intervals are retained in the raw summary.}\label{tab:comparison_null}
+\end{table}

@@ -1,0 +1,15 @@
+\begin{table}[H]\centering\small
+\begin{tabular}{lrrrrr}
+\toprule
+Design & Verified & Local pairs & Singles & ARSS-JPS & EN + ML \\
+\midrule
+Signals & 0.673 & 1.169 & 0.662 & 0.321 & 0.181 \\
+Weak signals & 0.972 & 1.190 & 0.604 & 0.309 & 0.181 \\
+Suppressor & 0.894 & 1.818 & 0.356 & 0.420 & 0.240 \\
+Null & 0.570 & 1.123 & 0.191 & 0.191 & 0.178 \\
+Correlated null & 0.563 & 1.139 & 0.193 & 0.267 & 0.192 \\
+Group-aligned & 1.362 & 1.708 & 0.759 & 0.409 & 0.185 \\
+\bottomrule
+\end{tabular}
+\caption{Median end-to-end seconds on completed runs: selection, tuning where applicable, all certificate construction/checking, and a final ML coefficient refit. Independent replay, held-out scoring, imports and file writes are excluded. These procedures have different search/stopping policies; the ratios are descriptive, not isolated backend speedups.}\label{tab:comparison_time}
+\end{table}
